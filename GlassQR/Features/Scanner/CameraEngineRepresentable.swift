@@ -6,13 +6,13 @@
 import SwiftUI
 import AVFoundation
 
-public struct CameraEngineRepresentable: UIViewControllerRepresentable {
+struct CameraEngineRepresentable: UIViewControllerRepresentable {
     @Binding var isTorchOn: Bool
     @Binding var isPaused: Bool
     @Binding var isSimulatedSession: Bool
-    public let onCodeDetected: (String) -> Void
+    let onCodeDetected: (String) -> Void
 
-    public init(
+    init(
         isTorchOn: Binding<Bool>,
         isPaused: Binding<Bool>,
         isSimulatedSession: Binding<Bool>,
@@ -24,22 +24,22 @@ public struct CameraEngineRepresentable: UIViewControllerRepresentable {
         self.onCodeDetected = onCodeDetected
     }
 
-    public func makeUIViewController(context: Context) -> CameraViewController {
+    func makeUIViewController(context: Context) -> CameraViewController {
         let controller = CameraViewController()
         controller.delegate = context.coordinator
         return controller
     }
 
-    public func updateUIViewController(_ uiViewController: CameraViewController, context: Context) {
+    func updateUIViewController(_ uiViewController: CameraViewController, context: Context) {
         uiViewController.setTorch(on: isTorchOn)
         uiViewController.setPaused(isPaused)
     }
 
-    public func makeCoordinator() -> Coordinator {
+    func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
 
-    public final class Coordinator: NSObject, CameraViewControllerDelegate {
+    final class Coordinator: NSObject, CameraViewControllerDelegate {
         let parent: CameraEngineRepresentable
 
         init(parent: CameraEngineRepresentable) {

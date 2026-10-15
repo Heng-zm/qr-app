@@ -4,10 +4,10 @@
 //
 
 import UIKit
-import CoreImage
+@preconcurrency import CoreImage
 import CoreImage.CIFilterBuiltins
 
-public final class CrispQRRenderer: Sendable {
+public final class CrispQRRenderer: @unchecked Sendable {
     private let context = CIContext()
 
     public init() {}

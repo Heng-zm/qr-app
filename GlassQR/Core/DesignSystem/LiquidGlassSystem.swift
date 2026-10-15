@@ -37,7 +37,7 @@ public enum GlassEffectTransition: Sendable, Equatable {
 }
 
 public struct GlassShapeToken: Sendable {
-    public enum ShapeKind {
+    public enum ShapeKind: Sendable, Equatable {
         case capsule
         case rect(cornerRadius: CGFloat)
     }
