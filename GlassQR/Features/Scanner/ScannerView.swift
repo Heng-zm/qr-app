@@ -2,7 +2,7 @@
 //  ScannerView.swift
 //  GlassQR
 //
-//  Clean Minimalist Camera Scanner Interface (Apple & ChatGPT Style)
+//  Optimized Scanner Interface with Batch Mode, History Search, & CSV Export
 //
 
 import SwiftUI
@@ -13,6 +13,12 @@ import CoreImage
 public struct ScannerView: View {
     @Binding var hasCompletedOnboarding: Bool
     @Namespace private var scannerNamespace
+
+    // Scan Mode: Single (pops sheet) vs Batch (saves and keeps scanning)
+    @State private var isBatchMode: Bool = false
+    @State private var batchScanCount: Int = 0
+    @State private var lastScannedPayload: String = ""
+    @State private var lastScannedTimestamp: Date = .distantPast
 
     // Camera State
     @State private var isTorchOn: Bool = false
@@ -28,13 +34,14 @@ public struct ScannerView: View {
     // Scan Results & History
     @State private var activeScanResult: ScanResultItem? = nil
     @State private var scanFeedbackTrigger: Int = 0
+    @State private var showBatchHUD: Bool = false
+    @State private var batchHUDMessage: String = ""
     @State private var showHistorySheet: Bool = false
     @AppStorage("glassqr_scan_history") private var scanHistoryData: String = "[]"
 
     // Photo Library Picker
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var isAnalyzingPhoto: Bool = false
-    @State private var showSimulatorSheet: Bool = false
 
     private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
     private let cutoutSize: CGFloat = 260
@@ -61,7 +68,7 @@ public struct ScannerView: View {
             )
             .ignoresSafeArea()
 
-            // Clean Dark Vignette with Smooth Cutout
+            // Clean Dark Frosted Vignette Cutout
             GeometryReader { proxy in
                 let size = proxy.size
                 let rect = CGRect(
@@ -96,30 +103,36 @@ public struct ScannerView: View {
                     .transition(.scale.combined(with: .opacity))
             }
 
-            // Clean Minimalist Controls Overlay
+            // Controls Overlay
             VStack(spacing: 0) {
-                // Top Minimalist Command Bar
+                // Top Command Bar
                 topHUD
-                    .padding(.top, 16)
+                    .padding(.top, 14)
                     .padding(.horizontal, 20)
 
                 Spacer()
 
                 // Center Clean Viewfinder Frame
                 centralViewfinder
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 20)
 
                 Spacer()
 
+                // Transient Batch Scan Toast
+                if showBatchHUD {
+                    batchToast
+                        .padding(.bottom, 10)
+                }
+
                 // Bottom Minimalist Controls: Zoom & Photo Picker
                 bottomControls
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 22)
                     .padding(.horizontal, 24)
 
                 // Simulator Test Chip (Preview mode)
                 if isSimulatedSession {
                     simulatorTestChip
-                        .padding(.bottom, 12)
+                        .padding(.bottom, 10)
                 }
             }
         }
@@ -149,8 +162,8 @@ public struct ScannerView: View {
     // MARK: - UI Subviews
 
     private var topHUD: some View {
-        VStack(spacing: 12) {
-            // Minimalist Floating Pill Platter
+        VStack(spacing: 10) {
+            // Minimalist Floating Platter
             GlassEffectContainer(spacing: 12) {
                 // Torch Button
                 Button {
@@ -165,6 +178,23 @@ public struct ScannerView: View {
                 .buttonStyle(.glass)
                 .glassEffectID("torchControl", in: scannerNamespace)
 
+                // Batch Mode Toggle Button
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        isBatchMode.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isBatchMode ? "square.stack.3d.up.fill" : "square.stack.3d.up")
+                            .font(.system(size: 14))
+                        Text(isBatchMode ? "Batch" : "Single")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(isBatchMode ? Color.cyan : Color.white)
+                }
+                .buttonStyle(.glass)
+                .glassEffectID("batchControl", in: scannerNamespace)
+
                 // Camera Flip Button
                 Button {
                     withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
@@ -178,7 +208,7 @@ public struct ScannerView: View {
                 .buttonStyle(.glass)
                 .glassEffectID("flipControl", in: scannerNamespace)
 
-                // Scan History Drawer Button with clean dot badge
+                // Scan History Drawer Button with Counter Badge
                 Button {
                     showHistorySheet = true
                 } label: {
@@ -215,10 +245,10 @@ public struct ScannerView: View {
             // Minimalist Status Indicator Pill
             HStack(spacing: 7) {
                 Circle()
-                    .fill(isPaused ? Color.orange : Color.green)
+                    .fill(isPaused ? Color.orange : (isBatchMode ? Color.cyan : Color.green))
                     .frame(width: 6, height: 6)
 
-                Text(isPaused ? "Scanner Paused" : "Point at QR Code")
+                Text(statusText)
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.85))
             }
@@ -226,6 +256,12 @@ public struct ScannerView: View {
             .padding(.vertical, 6)
             .glassEffect()
         }
+    }
+
+    private var statusText: String {
+        if isPaused { return "Scanner Paused" }
+        if isBatchMode { return "Batch Mode (\(batchScanCount) Scanned)" }
+        return "Point at QR Code"
     }
 
     private var centralViewfinder: some View {
@@ -244,6 +280,25 @@ public struct ScannerView: View {
         .frame(width: cutoutSize, height: cutoutSize)
     }
 
+    private var batchToast: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+            Text(batchHUDMessage)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(Color(red: 0.14, green: 0.14, blue: 0.16))
+                .shadow(color: Color.black.opacity(0.35), radius: 8)
+        )
+        .transition(.scale.combined(with: .opacity))
+    }
+
     private var bottomControls: some View {
         HStack(spacing: 14) {
             // Sleek Segmented Zoom Pill
@@ -260,8 +315,7 @@ public struct ScannerView: View {
                             .frame(width: 38, height: 28)
                             .background {
                                 if zoomFactor == preset {
-                                    Capsule()
-                                        .fill(Color.white)
+                                    Capsule().fill(Color.white)
                                 }
                             }
                     }
@@ -284,34 +338,28 @@ public struct ScannerView: View {
     }
 
     private var simulatorTestChip: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Button("URL") {
-                    handleDetectedCode("https://apple.com/visionos")
-                }
-                .buttonStyle(.glass)
-
-                Button("Wi-Fi") {
-                    handleDetectedCode("WIFI:S:ApplePark_Guest;T:WPA;P:SwiftUI2026;;")
-                }
-                .buttonStyle(.glass)
-
-                Button("Email") {
-                    handleDetectedCode("mailto:developer@apple.com")
-                }
-                .buttonStyle(.glass)
-
-                Button("Note") {
-                    handleDetectedCode("GlassQR: Ultra-clean minimal interface")
-                }
-                .buttonStyle(.glass)
+        HStack(spacing: 8) {
+            Button("URL") {
+                handleDetectedCode("https://apple.com/visionos")
             }
-            .controlSize(.small)
+            .buttonStyle(.glass)
 
-            Text("Preview Simulation Active")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.45))
+            Button("Wi-Fi") {
+                handleDetectedCode("WIFI:S:ApplePark_Guest;T:WPA;P:LiquidGlass2026;;")
+            }
+            .buttonStyle(.glass)
+
+            Button("Email") {
+                handleDetectedCode("mailto:developer@apple.com")
+            }
+            .buttonStyle(.glass)
+
+            Button("Note") {
+                handleDetectedCode("GlassQR: Ultra-clean minimal interface")
+            }
+            .buttonStyle(.glass)
         }
+        .controlSize(.small)
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .glassEffect()
@@ -320,19 +368,39 @@ public struct ScannerView: View {
     // MARK: - Logic & Scanning Methods
 
     private var historyCount: Int {
-        guard let data = scanHistoryData.data(using: .utf8),
-              let list = try? JSONDecoder().decode([ScanResultItem].self, from: data) else {
-            return 0
-        }
-        return list.count
+        loadHistory().count
     }
 
     private func handleDetectedCode(_ code: String) {
-        guard activeScanResult == nil else { return }
+        // Throttling: Ignore identical duplicate scans within 1.5 seconds
+        let now = Date()
+        if code == lastScannedPayload && now.timeIntervalSince(lastScannedTimestamp) < 1.5 {
+            return
+        }
+
+        lastScannedPayload = code
+        lastScannedTimestamp = now
         scanFeedbackTrigger += 1
         let item = ScanResultItem(payload: code)
-        activeScanResult = item
         saveToHistory(item)
+
+        if isBatchMode {
+            // Batch Mode: Keep scanning and show lightweight toast
+            batchScanCount += 1
+            batchHUDMessage = "Saved: \(code.prefix(24))..."
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                showBatchHUD = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showBatchHUD = false
+                }
+            }
+        } else {
+            // Single Mode: Pop sheet
+            guard activeScanResult == nil else { return }
+            activeScanResult = item
+        }
     }
 
     private func triggerFocusAnimation(at point: CGPoint) {
@@ -350,8 +418,8 @@ public struct ScannerView: View {
     private func saveToHistory(_ item: ScanResultItem) {
         var items = loadHistory()
         items.insert(item, at: 0)
-        if items.count > 50 {
-            items = Array(items.prefix(50))
+        if items.count > 100 {
+            items = Array(items.prefix(100))
         }
         if let encoded = try? JSONEncoder().encode(items),
            let str = String(data: encoded, encoding: .utf8) {
@@ -393,19 +461,39 @@ public struct ScannerView: View {
     }
 }
 
-// MARK: - Minimalist Scan History Sheet
+// MARK: - Searchable Scan History Sheet with CSV Export
 
 private struct ScanHistoryView: View {
     @Binding var historyData: String
     let onSelectResult: (ScanResultItem) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    var items: [ScanResultItem] {
+    @State private var searchText: String = ""
+
+    var allItems: [ScanResultItem] {
         guard let data = historyData.data(using: .utf8),
               let list = try? JSONDecoder().decode([ScanResultItem].self, from: data) else {
             return []
         }
         return list
+    }
+
+    var filteredItems: [ScanResultItem] {
+        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return allItems
+        }
+        return allItems.filter {
+            $0.payload.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var exportedCSV: String {
+        var csv = "Timestamp,Payload\n"
+        for item in allItems {
+            let clean = item.payload.replacingOccurrences(of: "\"", with: "\"\"")
+            csv += "\"\(item.timestamp.ISO8601Format())\",\"\(clean)\"\n"
+        }
+        return csv
     }
 
     var body: some View {
@@ -414,7 +502,7 @@ private struct ScanHistoryView: View {
                 Color(red: 0.06, green: 0.06, blue: 0.08)
                     .ignoresSafeArea()
 
-                if items.isEmpty {
+                if allItems.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "tray")
                             .font(.system(size: 40, weight: .light))
@@ -426,7 +514,7 @@ private struct ScanHistoryView: View {
                     }
                 } else {
                     List {
-                        ForEach(items) { item in
+                        ForEach(filteredItems) { item in
                             Button {
                                 dismiss()
                                 onSelectResult(item)
@@ -461,18 +549,32 @@ private struct ScanHistoryView: View {
                         .onDelete(perform: deleteItem)
                     }
                     .scrollContentBackground(.hidden)
+                    .searchable(text: $searchText, prompt: "Search scanned codes...")
                 }
             }
-            .navigationTitle("History")
+            .navigationTitle("History (\(allItems.count))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if !items.isEmpty {
-                        Button("Clear") {
-                            historyData = "[]"
+                    if !allItems.isEmpty {
+                        Menu {
+                            ShareLink(
+                                item: exportedCSV,
+                                preview: SharePreview("ScanHistory.csv")
+                            ) {
+                                Label("Export CSV", systemImage: "arrow.up.doc")
+                            }
+
+                            Button(role: .destructive) {
+                                historyData = "[]"
+                            } label: {
+                                Label("Clear All History", systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.white)
                         }
-                        .font(.system(size: 14, design: .rounded))
-                        .foregroundStyle(.red.opacity(0.85))
                     }
                 }
 
@@ -488,7 +590,7 @@ private struct ScanHistoryView: View {
     }
 
     private func deleteItem(at offsets: IndexSet) {
-        var list = items
+        var list = allItems
         list.remove(atOffsets: offsets)
         if let encoded = try? JSONEncoder().encode(list),
            let str = String(data: encoded, encoding: .utf8) {
