@@ -10,6 +10,7 @@ import PhotosUI
 import AVFoundation
 import CoreImage
 import AudioToolbox
+import Vision
 
 public struct ScannerView: View {
     @Binding var hasCompletedOnboarding: Bool
@@ -49,6 +50,10 @@ public struct ScannerView: View {
     // Photo Library Picker
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var isAnalyzingPhoto: Bool = false
+
+    // Live Camera Text OCR (VisionKit)
+    @State private var showTextOCRSheet: Bool = false
+    @State private var initialOCRText: String = ""
 
     private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
     private let cutoutSize: CGFloat = 260
@@ -167,6 +172,15 @@ public struct ScannerView: View {
         }
         .sheet(isPresented: $showSettingsSheet) {
             settingsSheet
+        }
+        .sheet(isPresented: $showTextOCRSheet) {
+            TextOCRSheetView(
+                isPresented: $showTextOCRSheet,
+                initialText: initialOCRText,
+                onApplyToGenerator: { text in
+                    handleDetectedCode(text, symbology: "Vision OCR")
+                }
+            )
         }
         .onChange(of: selectedPhotoItem) { _, newItem in
             Task {
@@ -418,6 +432,21 @@ public struct ScannerView: View {
             .padding(4)
             .glassEffect(.regular.interactive(), in: .capsule)
 
+            // Live Camera Text OCR Button
+            Button {
+                initialOCRText = ""
+                showTextOCRSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "text.viewfinder")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.cyan)
+                    Text("Live OCR")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+            }
+            .buttonStyle(.glass)
+
             // Photo Library QR Scanner Pill
             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                 HStack(spacing: 6) {
@@ -585,6 +614,24 @@ public struct ScannerView: View {
                     handleDetectedCode(message)
                 }
                 return
+            }
+        }
+
+        // Vision OCR fallback if no barcode/QR is found in the photo
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = true
+        let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
+        if (try? handler.perform([request])) != nil,
+           let observations = request.results,
+           !observations.isEmpty {
+            let extracted = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+            let trimmed = extracted.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                await MainActor.run {
+                    initialOCRText = trimmed
+                    showTextOCRSheet = true
+                }
             }
         }
     }

@@ -108,6 +108,9 @@ public struct GeneratorView: View {
     // Rendered QR State
     @State private var qrImage: UIImage? = nil
     @State private var copyHapticTrigger: Int = 0
+
+    // Live Camera Text OCR (VisionKit)
+    @State private var showOCRScannerSheet: Bool = false
     @State private var toastMessage: String? = nil
 
     private let generatorEngine = CrispQRRenderer()
@@ -152,6 +155,33 @@ public struct GeneratorView: View {
         }
         .navigationTitle("Generator")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showOCRScannerSheet = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "text.viewfinder")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.cyan)
+                        Text("Live OCR")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.white.opacity(0.08)))
+                }
+            }
+        }
+        .sheet(isPresented: $showOCRScannerSheet) {
+            TextOCRSheetView(
+                isPresented: $showOCRScannerSheet,
+                onApplyToGenerator: { text in
+                    applyScannedText(text)
+                }
+            )
+        }
         .onAppear {
             renderCurrentQR()
         }
@@ -247,6 +277,14 @@ public struct GeneratorView: View {
 
                     if !inputText.isEmpty {
                         clearButton { inputText = "" }
+                    }
+
+                    Button {
+                        showOCRScannerSheet = true
+                    } label: {
+                        Image(systemName: "text.viewfinder")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.cyan)
                     }
                 }
                 .padding(.horizontal, 18)
@@ -799,6 +837,41 @@ public struct GeneratorView: View {
         case .text:
             inputText = "Hello from GlassQR"
         }
+    }
+
+    private func applyScannedText(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = trimmed.lowercased()
+
+        if lower.contains("wifi:") || (lower.contains("ssid") && lower.contains("pass")) {
+            selectedTemplate = .wifi
+            if let ssidRange = trimmed.range(of: #"(?:ssid|network|called|s:)[:= ]+["']?([^"',;\n]+)["']?"#, options: .caseInsensitive) {
+                let match = String(trimmed[ssidRange])
+                let tokens = match.components(separatedBy: CharacterSet(charactersIn: ":= "))
+                if let last = tokens.last?.trimmingCharacters(in: .whitespacesAndNewlines), !last.isEmpty {
+                    wifiSSID = last
+                }
+            } else {
+                wifiSSID = trimmed
+            }
+            if let passRange = trimmed.range(of: #"(?:password|pass|p:)[:= ]+["']?([^"',;\n]+)["']?"#, options: .caseInsensitive) {
+                let match = String(trimmed[passRange])
+                let tokens = match.components(separatedBy: CharacterSet(charactersIn: ":= "))
+                if let last = tokens.last?.trimmingCharacters(in: .whitespacesAndNewlines), !last.isEmpty {
+                    wifiPassword = last
+                }
+            }
+        } else if lower.hasPrefix("http://") || lower.hasPrefix("https://") || lower.contains(".com") || lower.contains(".org") {
+            selectedTemplate = .url
+            inputText = trimmed
+        } else if lower.contains("begin:vcard") {
+            selectedTemplate = .contact
+        } else {
+            selectedTemplate = .text
+            inputText = trimmed
+        }
+        renderCurrentQR()
+        triggerToast("OCR Text Applied")
     }
 
     private func renderCurrentQR() {

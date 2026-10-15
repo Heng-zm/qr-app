@@ -28,6 +28,8 @@
 		1B0000190000000000000019 /* AIAgentMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000200000000000000020 /* AIAgentMessage.swift */; };
 		1B0000200000000000000020 /* GlassAIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000210000000000000021 /* GlassAIEngine.swift */; };
 		1B0000210000000000000021 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000220000000000000022 /* AIAssistantView.swift */; };
+		1B0000220000000000000022 /* LiveTextScannerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000230000000000000023 /* LiveTextScannerRepresentable.swift */; };
+		1B0000230000000000000023 /* TextOCRSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000240000000000000024 /* TextOCRSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +56,8 @@
 		1A0000200000000000000020 /* AIAgentMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAgentMessage.swift; sourceTree = "<group>"; };
 		1A0000210000000000000021 /* GlassAIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassAIEngine.swift; sourceTree = "<group>"; };
 		1A0000220000000000000022 /* AIAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantView.swift; sourceTree = "<group>"; };
+		1A0000230000000000000023 /* LiveTextScannerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTextScannerRepresentable.swift; sourceTree = "<group>"; };
+		1A0000240000000000000024 /* TextOCRSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextOCRSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,6 +124,7 @@
 				1C0000080000000000000008 /* Background */,
 				1C0000090000000000000009 /* Components */,
 				1C0000160000000000000016 /* AI */,
+				1C0000180000000000000018 /* OCR */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -154,6 +159,14 @@
 				1A0000210000000000000021 /* GlassAIEngine.swift */,
 			);
 			path = AI;
+			sourceTree = "<group>";
+		};
+		1C0000180000000000000018 /* OCR */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000230000000000000023 /* LiveTextScannerRepresentable.swift */,
+			);
+			path = OCR;
 			sourceTree = "<group>";
 		};
 		1C0000100000000000000010 /* Features */ = {
@@ -202,6 +215,7 @@
 				1A0000130000000000000013 /* ScanningLaserView.swift */,
 				1A0000140000000000000014 /* ScanResultSheetView.swift */,
 				1A0000150000000000000015 /* ScannerView.swift */,
+				1A0000240000000000000024 /* TextOCRSheetView.swift */,
 			);
 			path = Scanner;
 			sourceTree = "<group>";
@@ -313,6 +327,8 @@
 				1B0000190000000000000019 /* AIAgentMessage.swift in Sources */,
 				1B0000200000000000000020 /* GlassAIEngine.swift in Sources */,
 				1B0000210000000000000021 /* AIAssistantView.swift in Sources */,
+				1B0000220000000000000022 /* LiveTextScannerRepresentable.swift in Sources */,
+				1B0000230000000000000023 /* TextOCRSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

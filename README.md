@@ -34,8 +34,10 @@ GlassQR/
     │   │   └── LiquidMeshGradientView.swift # Living animated MeshGradient background
     │   ├── Components/
     │   │   └── ReplayOnboardingButton.swift # Toolbar quick-replay test component
-    │   └── AI/
-    │       └── GlassAIEngine.swift          # Dual-engine on-device heuristics & cloud LLM
+    │   ├── AI/
+    │   │   └── GlassAIEngine.swift          # Dual-engine on-device heuristics & cloud LLM
+    │   └── OCR/
+    │       └── LiveTextScannerRepresentable.swift # VisionKit DataScannerViewController & simulator fallback
     │
     ├── Features/
     │   ├── Onboarding/
@@ -51,7 +53,8 @@ GlassQR/
     │   │   ├── CameraEngineRepresentable.swift # AVCaptureSession & simulator fallback
     │   │   ├── ScannerReticleView.swift     # Viewfinder corner targeting brackets
     │   │   ├── ScanningLaserView.swift      # Glowing oscillating laser bar
-    │   │   └── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet
+    │   │   ├── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet
+    │   │   └── TextOCRSheetView.swift       # Live Camera Text OCR to QR modal studio
     │   │
     │   ├── Assistant/
     │   │   └── AIAssistantView.swift        # Liquid Glass AI Agent chat, threat inspector & QR generator
@@ -137,6 +140,20 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
 
 ### 4. Living Liquid MeshGradient
 - An oscillating `MeshGradient` powered by `TimelineView(.animation)` shifts through deep midnight indigo, electric violet, ocean cyan, and liquid magenta, creating a rich dynamic palette that refracts through every floating glass element in real time.
+
+### 5. Live Camera Text OCR to QR (VisionKit & Apple Vision) 👁️
+- **Hardware-Accelerated Live Text Scanning**:
+  - Leverages Apple's native `VisionKit.DataScannerViewController` with optical character recognition targeting text strings directly in the live camera feed.
+  - Interactive tap-to-select text highlighting with continuous optical tracking.
+  - Seamless fallback on simulators and headless CI runners with built-in test fixtures and manual input support.
+- **Instant Vector QR Generation Studio**:
+  - Any captured or tapped live text is immediately rendered into a crisp vector QR code preview inside the Liquid Glass modal studio.
+  - Auto-categorization engine detects whether recognized text is **Wi-Fi**, **Web URL**, **vCard Contact**, or **Plain Text** with matching badge indicators.
+- **Photos Library OCR Fallback**:
+  - Picking an image from Photos library runs dual recognition: first tries standard barcode decoding; if no barcode is found, it automatically activates Apple `Vision.VNRecognizeTextRequest` (`.accurate` level) to extract text and generate a QR code seamlessly.
+- **Two-Way Studio Routing**:
+  - **Scanner Tab**: Quick-access Live OCR viewfinder button (`text.viewfinder`) in the floating camera HUD.
+  - **Generator Tab**: Live OCR button in both the navigation bar and input area with smart auto-routing into Wi-Fi, URL, Contact, or Text templates with visual confirmation toasts.
 
 ---
 
