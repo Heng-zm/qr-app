@@ -117,7 +117,6 @@ public struct AIAssistantView: View {
         .sheet(isPresented: $showNFCStudioSheet) {
             NFCStudioSheetView(
                 isPresented: $showNFCStudioSheet,
-                initialMode: .write,
                 initialWritePayload: nfcWritePayload
             )
         }
@@ -857,272 +856,14 @@ private struct AISettingsSheet: View {
 
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Overview Card
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "cpu.fill")
-                                    .foregroundStyle(Color.cyan)
-                                Text("Dual Engine Architecture")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundStyle(.white)
-                            }
+                        overviewCard
+                        providerSelectorCard
 
-                            Text("By default, GlassQR operates a 100% on-device neural engine. No internet or API keys are required for natural language QR creation, Wi-Fi decoding, or safety analysis.\n\nOptionally switch to cloud providers (OpenAI, Gemini, Claude) for extended multi-modal vision and reasoning.")
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.75))
-                                .lineSpacing(3)
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
-                        )
-
-                        // Provider Selection
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Engine Provider")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.6))
-
-                            Picker("Provider", selection: $engine.providerRaw) {
-                                ForEach(AIProvider.allCases) { prov in
-                                    Label(prov.rawValue, systemImage: prov.icon).tag(prov.rawValue)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .padding(12)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
-                        )
-
-                        // Cloud API Configuration Platter with Auto-Fetch Models
                         if engine.provider != .onDevice {
-                            VStack(alignment: .leading, spacing: 14) {
-                                HStack {
-                                    Text("\(engine.provider.rawValue) Credentials")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.white.opacity(0.6))
-                                    Spacer()
-                                    if !engine.apiKey.isEmpty {
-                                        Button {
-                                            Task {
-                                                await engine.fetchAvailableModels(force: true)
-                                            }
-                                        } label: {
-                                            HStack(spacing: 4) {
-                                                if engine.isFetchingModels {
-                                                    ProgressView()
-                                                        .tint(.cyan)
-                                                        .scaleEffect(0.7)
-                                                } else {
-                                                    Image(systemName: "arrow.clockwise")
-                                                        .font(.system(size: 11, weight: .bold))
-                                                }
-                                                Text(engine.isFetchingModels ? "Fetching..." : "Fetch Models")
-                                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                            }
-                                            .foregroundStyle(Color.cyan)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .background(Capsule().fill(Color.cyan.opacity(0.12)))
-                                        }
-                                        .disabled(engine.isFetchingModels)
-                                    }
-                                }
-
-                                SecureField("API Key (e.g. sk-..., AIzaSy..., claude-...)", text: $engine.apiKey)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .font(.system(size: 13, design: .monospaced))
-                                    .padding(12)
-                                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
-
-                                // Custom Endpoint if needed
-                                if engine.provider == .custom || engine.provider == .openAI {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Endpoint URL (Optional)")
-                                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                                            .foregroundStyle(.white.opacity(0.5))
-                                        TextField("Custom Endpoint (e.g. http://localhost:11434/v1/chat/completions)", text: $engine.customEndpoint)
-                                            .textInputAutocapitalization(.never)
-                                            .autocorrectionDisabled()
-                                            .font(.system(size: 12, design: .monospaced))
-                                            .padding(12)
-                                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
-                                    }
-                                }
-
-                                // Auto-Fetched Model Selection
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Text("Active Model")
-                                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                            .foregroundStyle(.white.opacity(0.8))
-
-                                        Spacer()
-
-                                        if !engine.availableModels.isEmpty {
-                                            HStack(spacing: 5) {
-                                                Circle()
-                                                    .fill(Color.green)
-                                                    .frame(width: 6, height: 6)
-                                                Text("\(engine.availableModels.count) models available")
-                                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                                    .foregroundStyle(Color.green)
-                                            }
-                                        }
-                                    }
-
-                                    if engine.isFetchingModels {
-                                        HStack(spacing: 10) {
-                                            ProgressView()
-                                                .tint(Color.cyan)
-                                                .scaleEffect(0.8)
-                                            Text("Contacting \(engine.provider.rawValue) to fetch supported models...")
-                                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                                .foregroundStyle(Color.white.opacity(0.75))
-                                        }
-                                        .padding(12)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.05)))
-                                    } else if !engine.availableModels.isEmpty {
-                                        Menu {
-                                            ForEach(engine.availableModels, id: \.self) { model in
-                                                Button {
-                                                    engine.customModel = model
-                                                } label: {
-                                                    HStack {
-                                                        Text(model)
-                                                        if engine.activeModelName == model {
-                                                            Image(systemName: "checkmark")
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        } label: {
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(engine.activeModelName)
-                                                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                                                        .foregroundStyle(.white)
-                                                    Text("Tap to switch model")
-                                                        .font(.system(size: 10, design: .rounded))
-                                                        .foregroundStyle(.white.opacity(0.5))
-                                                }
-                                                Spacer()
-                                                Image(systemName: "chevron.up.chevron.down")
-                                                    .font(.system(size: 12, weight: .bold))
-                                                    .foregroundStyle(Color.cyan)
-                                            }
-                                            .padding(12)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .fill(Color.white.opacity(0.08))
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 12)
-                                                            .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
-                                                    )
-                                            )
-                                        }
-                                    } else if let err = engine.fetchModelsError {
-                                        HStack(alignment: .top, spacing: 8) {
-                                            Image(systemName: "exclamationmark.triangle.fill")
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(Color.orange)
-                                            VStack(alignment: .leading, spacing: 2) {
-                                                Text(err)
-                                                    .font(.system(size: 11, design: .rounded))
-                                                    .foregroundStyle(Color.orange)
-                                                Text("Using default: \(engine.activeModelName)")
-                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                    .foregroundStyle(Color.white.opacity(0.6))
-                                            }
-                                        }
-                                        .padding(10)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.1)))
-                                    } else {
-                                        HStack {
-                                            Text(engine.activeModelName)
-                                                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                                .foregroundStyle(.white.opacity(0.7))
-                                            Spacer()
-                                            Text("Default")
-                                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                                                .foregroundStyle(.white.opacity(0.4))
-                                        }
-                                        .padding(12)
-                                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.05)))
-                                    }
-
-                                    // Manual override toggle
-                                    Button {
-                                        withAnimation {
-                                            showCustomModelInput.toggle()
-                                        }
-                                    } label: {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: showCustomModelInput ? "chevron.down" : "pencil")
-                                                .font(.system(size: 10))
-                                            Text(showCustomModelInput ? "Hide Custom Model Input" : "Type Custom Model Name Manually")
-                                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        }
-                                        .foregroundStyle(Color.white.opacity(0.6))
-                                        .padding(.top, 4)
-                                    }
-
-                                    if showCustomModelInput {
-                                        TextField("Custom Model ID (e.g. gpt-4o-2024-08-06)", text: $engine.customModel)
-                                            .textInputAutocapitalization(.never)
-                                            .autocorrectionDisabled()
-                                            .font(.system(size: 12, design: .monospaced))
-                                            .padding(10)
-                                            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
-                                            .transition(.opacity.combined(with: .move(edge: .top)))
-                                    }
-                                }
-                            }
-                            .padding(16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.white.opacity(0.06))
-                                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
-                            )
+                            cloudConfigurationCard
                         }
 
-                        // Voice Synthesizer Test Card
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Speech Synthesizer")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.6))
-
-                            Button {
-                                engine.speakText("Hello! GlassQR Intelligent Copilot is fully configured and ready.")
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "speaker.wave.2.fill")
-                                    Text("Test Siri-Grade Audio Pronunciation")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 38)
-                            }
-                            .buttonStyle(.glass)
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
-                        )
-
+                        voiceSynthesizerCard
                         Spacer()
                     }
                     .padding(20)
@@ -1160,5 +901,297 @@ private struct AISettingsSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: - Sub-Views
+
+    @ViewBuilder
+    private var overviewCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "cpu.fill")
+                    .foregroundStyle(Color.cyan)
+                Text("Dual Engine Architecture")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            Text("By default, GlassQR operates a 100% on-device neural engine. No internet or API keys are required for natural language QR creation, Wi-Fi decoding, or safety analysis.\n\nOptionally switch to cloud providers (OpenAI, Gemini, Claude) for extended multi-modal vision and reasoning.")
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(.white.opacity(0.75))
+                .lineSpacing(3)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.06))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
+        )
+    }
+
+    @ViewBuilder
+    private var providerSelectorCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Engine Provider")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.6))
+
+            Picker("Provider", selection: $engine.providerRaw) {
+                ForEach(AIProvider.allCases) { prov in
+                    Label(prov.rawValue, systemImage: prov.icon).tag(prov.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.06))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
+        )
+    }
+
+    @ViewBuilder
+    private var cloudConfigurationCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("\(engine.provider.rawValue) Credentials")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+                Spacer()
+                if !engine.apiKey.isEmpty {
+                    fetchModelsButton
+                }
+            }
+
+            SecureField("API Key (e.g. sk-..., AIzaSy..., claude-...)", text: $engine.apiKey)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(size: 13, design: .monospaced))
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
+
+            if engine.provider == .custom || engine.provider == .openAI {
+                endpointField
+            }
+
+            activeModelSelector
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.06))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
+        )
+    }
+
+    @ViewBuilder
+    private var fetchModelsButton: some View {
+        Button {
+            Task {
+                await engine.fetchAvailableModels(force: true)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                if engine.isFetchingModels {
+                    ProgressView()
+                        .tint(.cyan)
+                        .scaleEffect(0.7)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                Text(engine.isFetchingModels ? "Fetching..." : "Fetch Models")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(Color.cyan)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.cyan.opacity(0.12)))
+        }
+        .disabled(engine.isFetchingModels)
+    }
+
+    @ViewBuilder
+    private var endpointField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Endpoint URL (Optional)")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.5))
+            TextField("Custom Endpoint (e.g. http://localhost:11434/v1/chat/completions)", text: $engine.customEndpoint)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(size: 12, design: .monospaced))
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.07)))
+        }
+    }
+
+    @ViewBuilder
+    private var activeModelSelector: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Active Model")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+
+                Spacer()
+
+                if !engine.availableModels.isEmpty {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        Text("\(engine.availableModels.count) models available")
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.green)
+                    }
+                }
+            }
+
+            if engine.isFetchingModels {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .tint(Color.cyan)
+                        .scaleEffect(0.8)
+                    Text("Contacting \(engine.provider.rawValue) to fetch supported models...")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.75))
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.05)))
+            } else if !engine.availableModels.isEmpty {
+                modelDropdownMenu
+            } else if let err = engine.fetchModelsError {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(err)
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundStyle(Color.orange)
+                        Text("Using default: \(engine.activeModelName)")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.6))
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.1)))
+            } else {
+                HStack {
+                    Text(engine.activeModelName)
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.7))
+                    Spacer()
+                    Text("Default")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.05)))
+            }
+
+            // Manual override toggle
+            Button {
+                withAnimation {
+                    showCustomModelInput.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: showCustomModelInput ? "chevron.down" : "pencil")
+                        .font(.system(size: 10))
+                    Text(showCustomModelInput ? "Hide Custom Model Input" : "Type Custom Model Name Manually")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                }
+                .foregroundStyle(Color.white.opacity(0.6))
+                .padding(.top, 4)
+            }
+
+            if showCustomModelInput {
+                TextField("Custom Model ID (e.g. gpt-4o-2024-08-06)", text: $engine.customModel)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 12, design: .monospaced))
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modelDropdownMenu: some View {
+        Menu {
+            ForEach(engine.availableModels, id: \.self) { model in
+                Button {
+                    engine.customModel = model
+                } label: {
+                    HStack {
+                        Text(model)
+                        if engine.activeModelName == model {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(engine.activeModelName)
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                    Text("Tap to switch model")
+                        .font(.system(size: 10, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                Spacer()
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.cyan)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.cyan.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var voiceSynthesizerCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Speech Synthesizer")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.6))
+
+            Button {
+                engine.speakText("Hello! GlassQR Intelligent Copilot is fully configured and ready.")
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "speaker.wave.2.fill")
+                    Text("Test Siri-Grade Audio Pronunciation")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 38)
+            }
+            .buttonStyle(.glass)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.06))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.09), lineWidth: 1))
+        )
     }
 }

@@ -61,6 +61,16 @@ public struct SteganographicQREngine: Sendable {
     }
 
     /// Encrypts secret text into a steganographic QR payload disguised as a public decoy URL
+    public static func encryptPayload(
+        secretText: String,
+        passcode: String,
+        decoyURL: String = defaultDecoyURL,
+        useURLSteganography: Bool = true
+    ) throws -> String {
+        try encrypt(secretText: secretText, passcode: passcode, decoyURL: decoyURL, useURLSteganography: useURLSteganography)
+    }
+
+    /// Encrypts secret text into a steganographic QR payload disguised as a public decoy URL
     public static func encrypt(
         secretText: String,
         passcode: String,

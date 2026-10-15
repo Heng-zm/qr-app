@@ -138,7 +138,7 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
 
         do {
             try handler.perform([barcodeRequest])
-            if let results = barcodeRequest.results as? [VNBarcodeObservation], let firstBarcode = results.first, let payload = firstBarcode.payloadStringValue {
+            if let results = barcodeRequest.results, let firstBarcode = results.first, let payload = firstBarcode.payloadStringValue {
                 let symbologyName = formatSymbology(firstBarcode.symbology.rawValue)
                 let scanItem = ScanResultItem(payload: payload, symbology: symbologyName)
                 var analysis = analyzeScannedItem(scanItem)

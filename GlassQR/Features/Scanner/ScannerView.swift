@@ -892,6 +892,7 @@ private struct ScanHistoryView: View {
         case .sms: return "message.fill"
         case .contact: return "person.crop.circle"
         case .geo: return "map.fill"
+        case .encryptedVault: return "lock.shield.fill"
         case .productBarcode: return "barcode.viewfinder"
         case .text: return "doc.text"
         }
