@@ -363,61 +363,9 @@ public struct GeneratorView: View {
 
     private var stylingPlatter: some View {
         HStack(spacing: 16) {
-            // Color Theme Dots
-            HStack(spacing: 8) {
-                ForEach(QRColorTheme.allCases) { theme in
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            selectedTheme = theme
-                        }
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(theme.swiftColor)
-                                .frame(width: 22, height: 22)
-
-                            if selectedTheme == theme {
-                                Circle()
-                                    .stroke(Color.white, lineWidth: 2)
-                                    .frame(width: 28, height: 28)
-                            }
-                        }
-                        .frame(width: 28, height: 28)
-                    }
-                }
-            }
-
+            colorThemeSelector
             Spacer()
-
-            // Center Badge Selector
-            Menu {
-                ForEach(CenterBadge.allCases) { badge in
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            selectedBadge = badge
-                        }
-                    } label: {
-                        if badge == .none {
-                            Text("No Center Icon")
-                        } else {
-                            Label(badge.rawValue.capitalized, systemImage: badge.rawValue)
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: selectedBadge == .none ? "circle.slash" : (selectedBadge.iconName ?? "star.fill"))
-                        .font(.system(size: 12))
-                    Text(selectedBadge == .none ? "Icon" : selectedBadge.rawValue.capitalized)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .foregroundStyle(Color.white.opacity(0.85))
-                .background(Capsule().fill(Color.white.opacity(0.08)))
-            }
+            badgeSelector
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -429,6 +377,76 @@ public struct GeneratorView: View {
                         .stroke(Color.white.opacity(0.07), lineWidth: 1)
                 )
         )
+    }
+
+    private var colorThemeSelector: some View {
+        HStack(spacing: 8) {
+            ForEach(QRColorTheme.allCases) { theme in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        selectedTheme = theme
+                    }
+                } label: {
+                    themeDot(for: theme)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func themeDot(for theme: QRColorTheme) -> some View {
+        ZStack {
+            Circle()
+                .fill(theme.swiftColor)
+                .frame(width: 22, height: 22)
+
+            if selectedTheme == theme {
+                Circle()
+                    .stroke(Color.white, lineWidth: 2)
+                    .frame(width: 28, height: 28)
+            }
+        }
+        .frame(width: 28, height: 28)
+    }
+
+    private var badgeSelector: some View {
+        Menu {
+            ForEach(CenterBadge.allCases) { badge in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        selectedBadge = badge
+                    }
+                } label: {
+                    badgeMenuLabel(for: badge)
+                }
+            }
+        } label: {
+            badgeMenuTrigger
+        }
+    }
+
+    @ViewBuilder
+    private func badgeMenuLabel(for badge: CenterBadge) -> some View {
+        if badge == .none {
+            Text("No Center Icon")
+        } else {
+            Label(badge.rawValue.capitalized, systemImage: badge.rawValue)
+        }
+    }
+
+    private var badgeMenuTrigger: some View {
+        HStack(spacing: 6) {
+            Image(systemName: selectedBadge.iconName ?? "circle.slash")
+                .font(.system(size: 12))
+            Text(selectedBadge == .none ? "Icon" : selectedBadge.rawValue.capitalized)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 9))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .foregroundStyle(Color.white.opacity(0.85))
+        .background(Capsule().fill(Color.white.opacity(0.08)))
     }
 
     private var cleanPillBackground: some View {
