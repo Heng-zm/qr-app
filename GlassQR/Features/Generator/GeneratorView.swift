@@ -384,52 +384,70 @@ public struct GeneratorView: View {
 
     // MARK: - Styling Platter (Color & Center Badge)
 
+    private var themeAndCorrectionRow: some View {
+        HStack(spacing: 12) {
+            colorThemeSelector
+            Spacer()
+            correctionLevelMenu
+        }
+    }
+
+    private var customLogoPickerButton: some View {
+        let isCustomSet: Bool = customLogoImage != nil
+        let iconName: String = isCustomSet ? "photo.fill" : "photo.badge.plus"
+        let title: String = isCustomSet ? "Change Logo" : "Custom Logo"
+        let fgColor: Color = isCustomSet ? Color.white : Color.white.opacity(0.85)
+        let bgColor: Color = isCustomSet ? Color.cyan.opacity(0.2) : Color.white.opacity(0.08)
+
+        return PhotosPicker(selection: $customLogoItem, matching: .images) {
+            HStack(spacing: 6) {
+                Image(systemName: iconName)
+                    .font(.system(size: 12))
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .foregroundStyle(fgColor)
+            .background(Capsule().fill(bgColor))
+        }
+    }
+
+    @ViewBuilder
+    private var customLogoControls: some View {
+        customLogoPickerButton
+
+        if customLogoImage != nil {
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    customLogoImage = nil
+                    customLogoItem = nil
+                    renderCurrentQR()
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+        }
+    }
+
+    private var badgeAndLogoRow: some View {
+        HStack(spacing: 10) {
+            badgeSelector
+            Spacer()
+            customLogoControls
+        }
+    }
+
     private var stylingPlatter: some View {
         VStack(spacing: 12) {
-            // Row 1: Themes & Error Correction
-            HStack(spacing: 12) {
-                colorThemeSelector
-                Spacer()
-                correctionLevelMenu
-            }
+            themeAndCorrectionRow
 
             Divider()
                 .background(Color.white.opacity(0.08))
 
-            // Row 2: Center Icon & Custom Photo Logo
-            HStack(spacing: 10) {
-                badgeSelector
-
-                Spacer()
-
-                // Custom Logo Photos Picker
-                PhotosPicker(selection: $customLogoItem, matching: .images) {
-                    HStack(spacing: 6) {
-                        Image(systemName: customLogoImage == nil ? "photo.badge.plus" : "photo.fill")
-                            .font(.system(size: 12))
-                        Text(customLogoImage == nil ? "Custom Logo" : "Change Logo")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .foregroundStyle(customLogoImage == nil ? Color.white.opacity(0.85) : Color.white)
-                    .background(Capsule().fill(customLogoImage == nil ? Color.white.opacity(0.08) : Color.cyan.opacity(0.2)))
-                }
-
-                if customLogoImage != nil {
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            customLogoImage = nil
-                            customLogoItem = nil
-                            renderCurrentQR()
-                        }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(.white.opacity(0.55))
-                    }
-                }
-            }
+            badgeAndLogoRow
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

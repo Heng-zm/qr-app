@@ -601,6 +601,7 @@ private struct ScanHistoryView: View {
         case all = "All"
         case links = "Links"
         case wifi = "Wi-Fi"
+        case barcodes = "Barcodes"
         case contacts = "Contacts"
         case sms = "SMS"
         case text = "Text"
@@ -629,6 +630,8 @@ private struct ScanHistoryView: View {
             items = items.filter { if case .webURL = $0.category { return true }; return false }
         case .wifi:
             items = items.filter { if case .wifi = $0.category { return true }; return false }
+        case .barcodes:
+            items = items.filter { if case .productBarcode = $0.category { return true }; return false }
         case .contacts:
             items = items.filter { if case .contact = $0.category { return true }; return false }
         case .sms:
@@ -817,6 +820,7 @@ private struct ScanHistoryView: View {
         case .sms: return "message.fill"
         case .contact: return "person.crop.circle"
         case .geo: return "map.fill"
+        case .productBarcode: return "barcode.viewfinder"
         case .text: return "doc.text"
         }
     }
