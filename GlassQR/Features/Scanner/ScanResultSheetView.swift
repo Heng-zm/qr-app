@@ -134,7 +134,7 @@ public struct ScanResultSheetView: View {
         .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)
         .sheet(isPresented: $showAIAssistantSheet) {
             NavigationStack {
-                AIAssistantView(hasCompletedOnboarding: .constant(true), initialScanItem: result)
+                AIAssistantView(hasCompletedOnboarding: .constant(true), initialScanItem: result, isEmbeddedInTab: false)
                     .toolbar {
                         ToolbarItem(placement: .topBarLeading) {
                             Button("Close") {

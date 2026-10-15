@@ -147,7 +147,7 @@ public struct GeneratorView: View {
                     toastBanner(message: msg)
                 }
 
-                Spacer(minLength: 64)
+                Spacer(minLength: 88)
             }
         }
         .navigationTitle("Generator")

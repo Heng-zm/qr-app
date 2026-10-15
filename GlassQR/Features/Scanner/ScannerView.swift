@@ -145,7 +145,7 @@ public struct ScannerView: View {
 
                 // Bottom Minimalist Controls: Zoom & Photo Picker
                 bottomControls
-                    .padding(.bottom, 68)
+                    .padding(.bottom, 76)
                     .padding(.horizontal, 24)
             }
         }

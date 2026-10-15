@@ -21,12 +21,20 @@ public struct AIAssistantView: View {
     @State private var toastMessage: String?
     @State private var hapticFeedbackTrigger: Int = 0
 
+    var isEmbeddedInTab: Bool
+    @FocusState private var isInputFocused: Bool
+
     // QR Renderer instance for inline suggestions
     private let renderer = CrispQRRenderer()
 
-    public init(hasCompletedOnboarding: Binding<Bool>, initialScanItem: ScanResultItem? = nil) {
+    public init(
+        hasCompletedOnboarding: Binding<Bool>,
+        initialScanItem: ScanResultItem? = nil,
+        isEmbeddedInTab: Bool = true
+    ) {
         self._hasCompletedOnboarding = hasCompletedOnboarding
         self.initialScanItem = initialScanItem
+        self.isEmbeddedInTab = isEmbeddedInTab
     }
 
     public var body: some View {
@@ -36,14 +44,54 @@ public struct AIAssistantView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header Bar
-                headerPlatter
-
                 // Chat Messages Scroll
                 chatScrollView
 
                 // Bottom Floating Input Bar
                 inputPlatter
+            }
+        }
+        .navigationTitle("Glass AI Agent")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                engineStatusBadge
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 8) {
+                    if !messages.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                messages.removeAll()
+                            }
+                            triggerToast("Conversation Cleared")
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                    }
+
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                }
+            }
+
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button {
+                    isInputFocused = false
+                } label: {
+                    Image(systemName: "keyboard.chevron.compact.down")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -57,57 +105,25 @@ public struct AIAssistantView: View {
         }
     }
 
-    // MARK: - Header Platter
+    // MARK: - Engine Status Badge
 
-    private var headerPlatter: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.cyan, .purple, .pink],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+    private var engineStatusBadge: some View {
+        Button {
+            showSettings = true
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 6, height: 6)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Glass AI Agent")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 6, height: 6)
-                        Text(engine.apiKey.isEmpty ? "On-Device Neural Engine" : "Cloud LLM Active")
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                }
+                Text(engine.apiKey.isEmpty ? "On-Device" : "Cloud LLM")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.75))
             }
-
-            Spacer()
-
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
-            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(Color.white.opacity(0.08)))
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
-        .background(
-            Rectangle()
-                .fill(Color.black.opacity(0.18))
-                .ignoresSafeArea(edges: .top)
-        )
     }
 
     // MARK: - Chat Messages Scroll
@@ -130,14 +146,21 @@ public struct AIAssistantView: View {
                             .id("thinking_indicator")
                     }
 
-                    // Spacer for bottom nav clearance
+                    // Spacer for bottom input and nav clearance
                     Spacer()
-                        .frame(height: 90)
+                        .frame(height: isEmbeddedInTab ? 130 : 70)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
             }
             .scrollDismissesKeyboard(.interactively)
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    if isInputFocused {
+                        isInputFocused = false
+                    }
+                }
+            )
             .onChange(of: messages.count) { _, _ in
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     if let last = messages.last {
@@ -478,16 +501,17 @@ public struct AIAssistantView: View {
     private var inputPlatter: some View {
         HStack(spacing: 8) {
             TextField("Ask AI to generate or analyze...", text: $inputText, axis: .vertical)
+                .focused($isInputFocused)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(Color.white.opacity(0.08))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
                         )
                 )
@@ -496,9 +520,9 @@ public struct AIAssistantView: View {
                 sendMessage()
             } label: {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.black)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 36, height: 36)
                     .background(
                         Circle().fill(
                             inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -509,13 +533,19 @@ public struct AIAssistantView: View {
             }
             .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isThinking)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(6)
         .background(
-            Rectangle()
-                .fill(Color.black.opacity(0.25))
-                .ignoresSafeArea(edges: .bottom)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(red: 0.10, green: 0.10, blue: 0.14).opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.4), radius: 14, x: 0, y: 4)
         )
+        .padding(.horizontal, 16)
+        .padding(.bottom, isEmbeddedInTab ? (isInputFocused ? 8 : 76) : 8)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isInputFocused)
     }
 
     // MARK: - Actions & Helpers
