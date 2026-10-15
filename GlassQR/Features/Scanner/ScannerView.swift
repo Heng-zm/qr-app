@@ -55,6 +55,9 @@ public struct ScannerView: View {
     @State private var showTextOCRSheet: Bool = false
     @State private var initialOCRText: String = ""
 
+    // NFC Smart Tag Studio
+    @State private var showNFCStudioSheet: Bool = false
+
     private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
     private let cutoutSize: CGFloat = 260
 
@@ -179,6 +182,14 @@ public struct ScannerView: View {
                 initialText: initialOCRText,
                 onApplyToGenerator: { text in
                     handleDetectedCode(text, symbology: "Vision OCR")
+                }
+            )
+        }
+        .sheet(isPresented: $showNFCStudioSheet) {
+            NFCStudioSheetView(
+                isPresented: $showNFCStudioSheet,
+                onApplyToGenerator: { text in
+                    handleDetectedCode(text, symbology: "NFC Tag")
                 }
             )
         }
@@ -442,6 +453,20 @@ public struct ScannerView: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.cyan)
                     Text("Live OCR")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                }
+            }
+            .buttonStyle(.glass)
+
+            // NFC Smart Studio Button
+            Button {
+                showNFCStudioSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "wave.3.forward.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.green)
+                    Text("NFC")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                 }
             }

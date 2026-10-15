@@ -16,6 +16,8 @@ public struct ScanResultSheetView: View {
     @State private var copiedPassword: Bool = false
     @State private var copyHapticTrigger: Int = 0
     @State private var showAIAssistantSheet: Bool = false
+    @State private var showTranslationSheet: Bool = false
+    @State private var showNFCSheet: Bool = false
 
     public init(result: ScanResultItem) {
         self.result = result
@@ -106,6 +108,7 @@ public struct ScanResultSheetView: View {
                 VStack(spacing: 10) {
                     actionButtons
 
+                    // AI Assistant Inspector Button
                     Button {
                         showAIAssistantSheet = true
                     } label: {
@@ -125,6 +128,39 @@ public struct ScanResultSheetView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glass)
+
+                    // Secondary Tools: Translation & NFC Write
+                    HStack(spacing: 10) {
+                        Button {
+                            showTranslationSheet = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Color.cyan)
+                                Text("Translate")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                        }
+                        .buttonStyle(.glass)
+
+                        Button {
+                            showNFCSheet = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "wave.3.forward.circle.fill")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Color.green)
+                                Text("Write NFC")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                        }
+                        .buttonStyle(.glass)
+                    }
                 }
                 .padding(.horizontal, 24)
 
@@ -144,6 +180,18 @@ public struct ScanResultSheetView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $showTranslationSheet) {
+            TranslationSheetView(
+                isPresented: $showTranslationSheet,
+                originalText: result.payload
+            )
+        }
+        .sheet(isPresented: $showNFCSheet) {
+            NFCStudioSheetView(
+                isPresented: $showNFCSheet,
+                initialWritePayload: result.payload
+            )
         }
     }
 

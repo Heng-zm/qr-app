@@ -113,6 +113,12 @@ public struct GeneratorView: View {
     @State private var showOCRScannerSheet: Bool = false
     @State private var toastMessage: String? = nil
 
+    // Live On-Device Translation
+    @State private var showTranslationSheet: Bool = false
+
+    // NFC Smart Tag Studio
+    @State private var showNFCSheet: Bool = false
+
     private let generatorEngine = CrispQRRenderer()
 
     public init(hasCompletedOnboarding: Binding<Bool>) {
@@ -157,20 +163,54 @@ public struct GeneratorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    showOCRScannerSheet = true
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "text.viewfinder")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.cyan)
-                        Text("Live OCR")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
+                HStack(spacing: 8) {
+                    Button {
+                        showOCRScannerSheet = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "text.viewfinder")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.cyan)
+                            Text("Live OCR")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.white.opacity(0.08)))
                     }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.white.opacity(0.08)))
+
+                    Button {
+                        showTranslationSheet = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "globe")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.cyan)
+                            Text("Translate")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                    }
+
+                    Button {
+                        showNFCSheet = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "wave.3.forward.circle.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.green)
+                            Text("NFC")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                    }
                 }
             }
         }
@@ -180,6 +220,24 @@ public struct GeneratorView: View {
                 onApplyToGenerator: { text in
                     applyScannedText(text)
                 }
+            )
+        }
+        .sheet(isPresented: $showTranslationSheet) {
+            TranslationSheetView(
+                isPresented: $showTranslationSheet,
+                originalText: currentPayload,
+                onApplyToGenerator: { translated in
+                    applyScannedText(translated)
+                },
+                onApplyDualLanguageToGenerator: { dual in
+                    applyScannedText(dual)
+                }
+            )
+        }
+        .sheet(isPresented: $showNFCSheet) {
+            NFCStudioSheetView(
+                isPresented: $showNFCSheet,
+                initialWritePayload: currentPayload
             )
         }
         .onAppear {
@@ -277,6 +335,14 @@ public struct GeneratorView: View {
 
                     if !inputText.isEmpty {
                         clearButton { inputText = "" }
+                    }
+
+                    Button {
+                        showTranslationSheet = true
+                    } label: {
+                        Image(systemName: "globe")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.cyan)
                     }
 
                     Button {
@@ -701,6 +767,12 @@ public struct GeneratorView: View {
                     copySVGCode()
                 } label: {
                     Label("Copy Vector SVG", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+
+                Button {
+                    showNFCSheet = true
+                } label: {
+                    Label("Write to Physical NFC Tag", systemImage: "wave.3.forward.circle.fill")
                 }
             } label: {
                 HStack(spacing: 4) {

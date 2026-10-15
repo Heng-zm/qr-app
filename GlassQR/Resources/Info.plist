@@ -28,6 +28,12 @@
 	<string>GlassQR needs access to your photos to scan QR codes from your library.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>GlassQR needs permission to save generated QR codes to your photo library.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>GlassQR uses NFC to read smart tags and write QR code payloads directly to physical NFC tags.</string>
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>NDEF</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

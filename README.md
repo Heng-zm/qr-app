@@ -36,8 +36,12 @@ GlassQR/
     │   │   └── ReplayOnboardingButton.swift # Toolbar quick-replay test component
     │   ├── AI/
     │   │   └── GlassAIEngine.swift          # Dual-engine on-device heuristics & cloud LLM
-    │   └── OCR/
-    │       └── LiveTextScannerRepresentable.swift # VisionKit DataScannerViewController & simulator fallback
+    │   ├── OCR/
+    │   │   └── LiveTextScannerRepresentable.swift # VisionKit DataScannerViewController & simulator fallback
+    │   ├── Translation/
+    │   │   └── GlassTranslationEngine.swift # On-device language detection & translation engine
+    │   └── NFC/
+    │       └── NFCManager.swift             # CoreNFC NDEF reader, writer & hardware simulator
     │
     ├── Features/
     │   ├── Onboarding/
@@ -56,6 +60,12 @@ GlassQR/
     │   │   ├── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet
     │   │   └── TextOCRSheetView.swift       # Live Camera Text OCR to QR modal studio
     │   │
+    │   ├── Translation/
+    │   │   └── TranslationSheetView.swift   # On-device real-time translation & dual-language QR studio
+    │   │
+    │   ├── NFC/
+    │   │   └── NFCStudioSheetView.swift     # Liquid Glass NFC radar scanner, NDEF programmer & presets
+    │   │
     │   ├── Assistant/
     │   │   └── AIAssistantView.swift        # Liquid Glass AI Agent chat, threat inspector & QR generator
     │   │
@@ -64,7 +74,7 @@ GlassQR/
     │       └── RootContentView.swift       # Root coordinator between Onboarding & TabView
     │
     └── Resources/
-        ├── Info.plist                       # Camera permissions (NSCameraUsageDescription)
+        ├── Info.plist                       # Camera & NFC permissions (NFCReaderUsageDescription)
         └── Assets.xcassets/                 # App icon & AccentColor assets
 ```
 
@@ -154,6 +164,27 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
 - **Two-Way Studio Routing**:
   - **Scanner Tab**: Quick-access Live OCR viewfinder button (`text.viewfinder`) in the floating camera HUD.
   - **Generator Tab**: Live OCR button in both the navigation bar and input area with smart auto-routing into Wi-Fi, URL, Contact, or Text templates with visual confirmation toasts.
+
+### 6. On-Device Real-Time Translation & Dual-Language QR 🌍
+- **Zero Cloud Latency & Total Privacy**:
+  - Uses Apple's `NaturalLanguage.NLLanguageRecognizer` to automatically identify the source language (English, Khmer 🇰🇭, Spanish, French, German, Japanese, Chinese, Korean, Thai, Vietnamese, Italian, Arabic, etc.).
+  - Instant on-device translation for OCR signs, menus, Wi-Fi stickers, and product labels.
+  - Built-in audio pronunciation with `AVSpeechSynthesizer` for both original and translated text.
+- **Dual-Language QR Matrix**:
+  - 1-tap generation of a **Dual-Language QR Code** combining original and translated text side-by-side, perfect for international cafes, tourist signs, and airport notices.
+- **Integrated Across All Tabs**:
+  - Available inside **Live OCR Studio**, **Scanner Result Sheet**, and **Generator Studio**.
+
+### 7. NFC Smart Tag Writer & Reader (`CoreNFC`) 📡
+- **Universal NDEF Tag Reader**:
+  - Read standard NFC Forum Type 1–5, NTAG213, NTAG215, and NTAG216 physical tags.
+  - Parses URI records (web links, tel, sms), Text records, and custom MIME payloads (Wi-Fi, vCard).
+  - 1-tap conversion of any read NFC tag into an animated vector QR code.
+- **Physical NFC Tag Programmer / Writer**:
+  - Write any generated QR code payload (Wi-Fi network strings, personal contact vCards, web links, or plain text) directly to physical NFC stickers and smart cards.
+  - Integrated capacity validation, lock status query, and success confirmation chimes.
+- **Full Simulator & CI Support**:
+  - Built-in `SimulatedNFCTag` presets ("Office Wi-Fi Tag", "Web URI Tag", "Business Card vCard Tag") allow complete testing on simulators and headless GitHub Actions without hardware dependencies.
 
 ---
 

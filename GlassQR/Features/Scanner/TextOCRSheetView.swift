@@ -19,6 +19,8 @@ public struct TextOCRSheetView: View {
     @State private var toastMessage: String?
     @State private var copyHapticTrigger: Int = 0
     @State private var showAIInspector: Bool = false
+    @State private var showTranslationSheet: Bool = false
+    @State private var showNFCStudioSheet: Bool = false
 
     private let renderer = CrispQRRenderer()
 
@@ -91,6 +93,26 @@ public struct TextOCRSheetView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showTranslationSheet) {
+                TranslationSheetView(
+                    isPresented: $showTranslationSheet,
+                    originalText: recognizedText,
+                    onApplyToGenerator: { translated in
+                        recognizedText = translated
+                        triggerToast("Applied Translated Text")
+                    },
+                    onApplyDualLanguageToGenerator: { dual in
+                        recognizedText = dual
+                        triggerToast("Applied Dual-Language Text")
+                    }
+                )
+            }
+            .sheet(isPresented: $showNFCStudioSheet) {
+                NFCStudioSheetView(
+                    isPresented: $showNFCStudioSheet,
+                    initialWritePayload: recognizedText
+                )
             }
         }
     }
@@ -308,6 +330,39 @@ public struct TextOCRSheetView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent)
+            }
+
+            // Dual Feature Buttons: Translation & NFC Tag Write
+            HStack(spacing: 10) {
+                Button {
+                    showTranslationSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Color.cyan)
+                        Text("Translate")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                }
+                .buttonStyle(.glass)
+
+                Button {
+                    showNFCStudioSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wave.3.forward.circle.fill")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Color.green)
+                        Text("Write NFC")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                }
+                .buttonStyle(.glass)
             }
 
             // Ask AI Copilot to analyze

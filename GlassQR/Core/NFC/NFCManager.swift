@@ -1,0 +1,271 @@
+import Foundation
+import CoreNFC
+import UIKit
+
+/// High-level mode for NFC session
+public enum NFCMode {
+    case read
+    case write(payload: String)
+}
+
+/// Information parsed from a physical or simulated NFC tag
+public struct NFCTagInfo: Identifiable, Equatable {
+    public let id = UUID()
+    public let payloadText: String
+    public let recordType: String
+    public let timestamp: Date
+    public let isSimulated: Bool
+
+    public init(payloadText: String, recordType: String, timestamp: Date = Date(), isSimulated: Bool = false) {
+        self.payloadText = payloadText
+        self.recordType = recordType
+        self.timestamp = timestamp
+        self.isSimulated = isSimulated
+    }
+}
+
+/// Core manager for reading and writing NFC tags using CoreNFC
+@MainActor
+public final class NFCManager: NSObject, ObservableObject {
+    public static let shared = NFCManager()
+
+    @Published public var isReadingAvailable: Bool = false
+    @Published public var isSessionActive: Bool = false
+    @Published public var lastReadTag: NFCTagInfo? = nil
+    @Published public var lastWriteSuccess: Bool = false
+    @Published public var statusMessage: String = "Ready"
+    @Published public var errorMessage: String? = nil
+
+    private var nfcSession: NFCNDEFReaderSession?
+    private var currentMode: NFCMode = .read
+
+    public override init() {
+        super.init()
+        self.isReadingAvailable = NFCNDEFReaderSession.readingAvailable
+    }
+
+    /// Check if physical NFC is available on this device
+    public func checkAvailability() -> Bool {
+        let available = NFCNDEFReaderSession.readingAvailable
+        self.isReadingAvailable = available
+        return available
+    }
+
+    /// Starts scanning for an NFC tag to read
+    public func startReading() {
+        self.errorMessage = nil
+        self.lastWriteSuccess = false
+        self.currentMode = .read
+
+        guard NFCNDEFReaderSession.readingAvailable else {
+            self.statusMessage = "NFC hardware is not available on this device (Simulator/iPad). You can use Simulated NFC Tags below."
+            return
+        }
+
+        nfcSession = NFCNDEFReaderSession(
+            delegate: self,
+            queue: nil,
+            invalidateAfterFirstRead: true
+        )
+        nfcSession?.alertMessage = "Hold the top edge of your iPhone near the NFC tag."
+        nfcSession?.begin()
+        self.isSessionActive = true
+        self.statusMessage = "Scanning for NFC tag..."
+    }
+
+    /// Starts scanning for an NFC tag to write a payload to
+    public func startWriting(payload: String) {
+        let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            self.errorMessage = "Cannot write empty payload to NFC tag."
+            return
+        }
+
+        self.errorMessage = nil
+        self.lastWriteSuccess = false
+        self.currentMode = .write(payload: trimmed)
+
+        guard NFCNDEFReaderSession.readingAvailable else {
+            self.statusMessage = "NFC hardware is not available on this device. You can test writing with Simulated NFC Tags."
+            return
+        }
+
+        nfcSession = NFCNDEFReaderSession(
+            delegate: self,
+            queue: nil,
+            invalidateAfterFirstRead: false
+        )
+        nfcSession?.alertMessage = "Hold iPhone near a writable NFC tag to program it."
+        nfcSession?.begin()
+        self.isSessionActive = true
+        self.statusMessage = "Ready to write to NFC tag..."
+    }
+
+    /// Simulator test method to simulate reading a tag without physical hardware
+    public func simulateTagRead(presetText: String, typeName: String = "URI / Text") {
+        let tag = NFCTagInfo(payloadText: presetText, recordType: typeName, isSimulated: true)
+        self.lastReadTag = tag
+        self.statusMessage = "Simulated Tag Read: \(typeName)"
+        let feedback = UINotificationFeedbackGenerator()
+        feedback.notificationOccurred(.success)
+    }
+
+    /// Simulator test method to simulate writing to a tag
+    public func simulateTagWrite(payload: String) {
+        self.lastWriteSuccess = true
+        self.statusMessage = "Simulated Write Successful!"
+        let feedback = UINotificationFeedbackGenerator()
+        feedback.notificationOccurred(.success)
+    }
+}
+
+// MARK: - NFCNDEFReaderSessionDelegate
+
+extension NFCManager: NFCNDEFReaderSessionDelegate {
+    public nonisolated func readerSessionDidBecomeActive(_ session: NFCNDEFReaderSession) {
+        Task { @MainActor in
+            self.isSessionActive = true
+        }
+    }
+
+    public nonisolated func readerSession(_ session: NFCNDEFReaderSession, didInvalidateWithError error: Error) {
+        Task { @MainActor in
+            self.isSessionActive = false
+            let nfcError = error as? NFCReaderError
+            if nfcError?.code != .readerSessionInvalidationErrorUserCanceled {
+                self.errorMessage = error.localizedDescription
+                self.statusMessage = "NFC Session ended: \(error.localizedDescription)"
+            } else {
+                self.statusMessage = "Ready"
+            }
+        }
+    }
+
+    public nonisolated func readerSession(_ session: NFCNDEFReaderSession, didDetectNDEFs messages: [NFCNDEFMessage]) {
+        // Read Mode (single read)
+        var extractedText = ""
+        var recordType = "NDEF Payload"
+
+        for message in messages {
+            for record in message.records {
+                if let url = record.wellKnownTypeURIPayload() {
+                    extractedText = url.absoluteString
+                    recordType = "URI"
+                    break
+                } else if let (text, _) = record.wellKnownTypeTextPayload() {
+                    extractedText = text
+                    recordType = "Text"
+                    break
+                } else {
+                    if let stringPayload = String(data: record.payload, encoding: .utf8) {
+                        extractedText = stringPayload
+                        recordType = "MIME / Data"
+                        break
+                    }
+                }
+            }
+            if !extractedText.isEmpty { break }
+        }
+
+        let finalPayload = extractedText
+        let finalType = recordType
+
+        Task { @MainActor in
+            if !finalPayload.isEmpty {
+                let tag = NFCTagInfo(payloadText: finalPayload, recordType: finalType, isSimulated: false)
+                self.lastReadTag = tag
+                self.statusMessage = "Tag Scanned: \(finalType)"
+                let feedback = UINotificationFeedbackGenerator()
+                feedback.notificationOccurred(.success)
+            } else {
+                self.statusMessage = "Tag contained no readable NDEF data."
+            }
+        }
+    }
+
+    public nonisolated func readerSession(_ session: NFCNDEFReaderSession, didDetect tags: [NFCNDEFTag]) {
+        guard case .write(let payload) = self.currentMode else {
+            // If in read mode with didDetect tags callback:
+            if let firstTag = tags.first {
+                session.connect(to: firstTag) { error in
+                    if error == nil {
+                        firstTag.readNDEF { message, readError in
+                            if let msg = message {
+                                self.readerSession(session, didDetectNDEFs: [msg])
+                            }
+                            session.invalidate()
+                        }
+                    }
+                }
+            }
+            return
+        }
+
+        // Write Mode
+        guard let tag = tags.first else {
+            session.invalidate(errorMessage: "No valid NFC tag detected.")
+            return
+        }
+
+        session.connect(to: tag) { [weak self] error in
+            if let error = error {
+                session.invalidate(errorMessage: "Connection failed: \(error.localizedDescription)")
+                return
+            }
+
+            tag.queryNDEFStatus { status, capacity, queryError in
+                if let queryError = queryError {
+                    session.invalidate(errorMessage: "Could not query tag status: \(queryError.localizedDescription)")
+                    return
+                }
+
+                switch status {
+                case .notSupported:
+                    session.invalidate(errorMessage: "Tag is not NDEF compliant.")
+                case .readOnly:
+                    session.invalidate(errorMessage: "Tag is locked (Read-Only).")
+                case .readWrite:
+                    // Construct NDEF Payload
+                    let ndefPayload: NFCNDEFPayload?
+                    if let url = URL(string: payload), payload.lowercased().hasPrefix("http") {
+                        ndefPayload = NFCNDEFPayload.wellKnownTypeURIPayload(url: url)
+                    } else {
+                        ndefPayload = NFCNDEFPayload.wellKnownTypeTextPayload(string: payload, locale: Locale(identifier: "en"))
+                    }
+
+                    guard let validPayload = ndefPayload else {
+                        session.invalidate(errorMessage: "Failed to construct NDEF payload.")
+                        return
+                    }
+
+                    let message = NFCNDEFMessage(records: [validPayload])
+
+                    // Check capacity
+                    if capacity > 0 && message.length > capacity {
+                        session.invalidate(errorMessage: "Tag capacity (\(capacity) bytes) too small for payload (\(message.length) bytes).")
+                        return
+                    }
+
+                    tag.writeNDEF(message) { writeError in
+                        if let writeError = writeError {
+                            session.invalidate(errorMessage: "Write failed: \(writeError.localizedDescription)")
+                        } else {
+                            session.alertMessage = "Payload written to NFC tag successfully! ✨"
+                            session.invalidate()
+
+                            Task { @MainActor [weak self] in
+                                self?.lastWriteSuccess = true
+                                self?.statusMessage = "Payload written successfully!"
+                                let feedback = UINotificationFeedbackGenerator()
+                                feedback.notificationOccurred(.success)
+                            }
+                        }
+                    }
+
+                @unknown default:
+                    session.invalidate(errorMessage: "Unknown tag status.")
+                }
+            }
+        }
+    }
+}

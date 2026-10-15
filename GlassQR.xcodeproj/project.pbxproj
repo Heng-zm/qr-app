@@ -30,6 +30,10 @@
 		1B0000210000000000000021 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000220000000000000022 /* AIAssistantView.swift */; };
 		1B0000220000000000000022 /* LiveTextScannerRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000230000000000000023 /* LiveTextScannerRepresentable.swift */; };
 		1B0000230000000000000023 /* TextOCRSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000240000000000000024 /* TextOCRSheetView.swift */; };
+		1B0000240000000000000024 /* GlassTranslationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000250000000000000025 /* GlassTranslationEngine.swift */; };
+		1B0000250000000000000025 /* TranslationSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000260000000000000026 /* TranslationSheetView.swift */; };
+		1B0000260000000000000026 /* NFCManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000270000000000000027 /* NFCManager.swift */; };
+		1B0000270000000000000027 /* NFCStudioSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000280000000000000028 /* NFCStudioSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +62,10 @@
 		1A0000220000000000000022 /* AIAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantView.swift; sourceTree = "<group>"; };
 		1A0000230000000000000023 /* LiveTextScannerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTextScannerRepresentable.swift; sourceTree = "<group>"; };
 		1A0000240000000000000024 /* TextOCRSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextOCRSheetView.swift; sourceTree = "<group>"; };
+		1A0000250000000000000025 /* GlassTranslationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTranslationEngine.swift; sourceTree = "<group>"; };
+		1A0000260000000000000026 /* TranslationSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationSheetView.swift; sourceTree = "<group>"; };
+		1A0000270000000000000027 /* NFCManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCManager.swift; sourceTree = "<group>"; };
+		1A0000280000000000000028 /* NFCStudioSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCStudioSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +133,8 @@
 				1C0000090000000000000009 /* Components */,
 				1C0000160000000000000016 /* AI */,
 				1C0000180000000000000018 /* OCR */,
+				1C0000190000000000000019 /* Translation */,
+				1C0000200000000000000020 /* NFC */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -169,6 +179,22 @@
 			path = OCR;
 			sourceTree = "<group>";
 		};
+		1C0000190000000000000019 /* Translation */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000250000000000000025 /* GlassTranslationEngine.swift */,
+			);
+			path = Translation;
+			sourceTree = "<group>";
+		};
+		1C0000200000000000000020 /* NFC */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000270000000000000027 /* NFCManager.swift */,
+			);
+			path = NFC;
+			sourceTree = "<group>";
+		};
 		1C0000100000000000000010 /* Features */ = {
 			isa = PBXGroup;
 			children = (
@@ -176,9 +202,27 @@
 				1C0000120000000000000012 /* Generator */,
 				1C0000130000000000000013 /* Scanner */,
 				1C0000170000000000000017 /* Assistant */,
+				1C0000210000000000000021 /* Translation */,
+				1C0000220000000000000022 /* NFC */,
 				1C0000140000000000000014 /* Navigation */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		1C0000210000000000000021 /* Translation */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000260000000000000026 /* TranslationSheetView.swift */,
+			);
+			path = Translation;
+			sourceTree = "<group>";
+		};
+		1C0000220000000000000022 /* NFC */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000280000000000000028 /* NFCStudioSheetView.swift */,
+			);
+			path = NFC;
 			sourceTree = "<group>";
 		};
 		1C0000170000000000000017 /* Assistant */ = {
@@ -329,6 +373,10 @@
 				1B0000210000000000000021 /* AIAssistantView.swift in Sources */,
 				1B0000220000000000000022 /* LiveTextScannerRepresentable.swift in Sources */,
 				1B0000230000000000000023 /* TextOCRSheetView.swift in Sources */,
+				1B0000240000000000000024 /* GlassTranslationEngine.swift in Sources */,
+				1B0000250000000000000025 /* TranslationSheetView.swift in Sources */,
+				1B0000260000000000000026 /* NFCManager.swift in Sources */,
+				1B0000270000000000000027 /* NFCStudioSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
