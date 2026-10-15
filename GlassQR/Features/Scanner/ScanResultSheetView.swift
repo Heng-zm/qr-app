@@ -6,6 +6,12 @@
 //
 
 import SwiftUI
+import MapKit
+
+private struct MapPinItem: Identifiable {
+    let id = UUID()
+    let coordinate: CLLocationCoordinate2D
+}
 
 public struct ScanResultSheetView: View {
     public let result: ScanResultItem
@@ -18,6 +24,7 @@ public struct ScanResultSheetView: View {
     @State private var showAIAssistantSheet: Bool = false
     @State private var showTranslationSheet: Bool = false
     @State private var showNFCSheet: Bool = false
+    @State private var showSecretVaultUnlockSheet: Bool = false
 
     public init(result: ScanResultItem) {
         self.result = result
@@ -92,8 +99,11 @@ public struct ScanResultSheetView: View {
                     case .contact(let name, let phone, let email, let org):
                         contactCard(name: name, phone: phone, email: email, org: org)
 
-                    case .geo(let lat, let lon, _):
-                        geoCard(latitude: lat, longitude: lon)
+                    case .geo(let lat, let lon, let label):
+                        geoCard(latitude: lat, longitude: lon, label: label)
+
+                    case .encryptedVault(let ciphertext, let decoyURL):
+                        vaultCard(ciphertext: ciphertext, decoyURL: decoyURL)
 
                     case .productBarcode(let code, let format):
                         productBarcodeCard(code: code, format: format)
@@ -191,6 +201,12 @@ public struct ScanResultSheetView: View {
             NFCStudioSheetView(
                 isPresented: $showNFCSheet,
                 initialWritePayload: result.payload
+            )
+        }
+        .sheet(isPresented: $showSecretVaultUnlockSheet) {
+            SecretVaultUnlockSheetView(
+                isPresented: $showSecretVaultUnlockSheet,
+                encryptedPayload: result.payload
             )
         }
     }
@@ -394,15 +410,94 @@ public struct ScanResultSheetView: View {
     }
 
     @ViewBuilder
-    private func geoCard(latitude: Double, longitude: Double) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("GEOLOCATION COORDINATES")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.45))
+    private func geoCard(latitude: Double, longitude: Double, label: String?) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                HStack(spacing: 5) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .foregroundStyle(Color.red)
+                    Text("APPLE MAP LOCATION")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.red)
+                }
+                Spacer()
+                Text(String(format: "%.4f°, %.4f°", latitude, longitude))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
 
-            Text(String(format: "%.4f° N, %.4f° W", latitude, longitude))
-                .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white)
+            if let name = label, !name.isEmpty {
+                Text(name)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+
+            // Interactive Dropped Pin Map Container
+            Map(coordinateRegion: .constant(MKCoordinateRegion(
+                center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+            )), annotationItems: [MapPinItem(coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))]) { pin in
+                MapMarker(coordinate: pin.coordinate, tint: .red)
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .disabled(true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+        )
+    }
+
+    @ViewBuilder
+    private func vaultCard(ciphertext: String, decoyURL: String?) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HStack(spacing: 5) {
+                    Image(systemName: "lock.shield.fill")
+                        .foregroundStyle(Color.cyan)
+                    Text("ENCRYPTED STEGANOGRAPHIC VAULT")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.cyan)
+                }
+                Spacer()
+                Text("AES-256")
+                    .font(.system(size: 10, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.cyan.opacity(0.15))
+                    .foregroundStyle(Color.cyan)
+                    .clipShape(Capsule())
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Zero-Knowledge Secret Payload")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text("Content is encrypted with AES-GCM and disguised behind a decoy URL. Enter your passcode or authenticate with Face ID to decrypt.")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+
+            Button {
+                showSecretVaultUnlockSheet = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "faceid")
+                        .font(.system(size: 15, weight: .bold))
+                    Text("Unlock with Face ID / Passcode")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 40)
+            }
+            .buttonStyle(.glassProminent)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -654,27 +749,37 @@ public struct ScanResultSheetView: View {
                 }
             }
 
-        case .geo(let lat, let lon, _):
+        case .geo(let lat, let lon, let label):
             HStack(spacing: 12) {
                 Button {
-                    copyToClipboard("\(lat), \(lon)")
+                    copyToClipboard(String(format: "%.5f, %.5f", lat, lon))
                 } label: {
                     Label(copied ? "Copied" : "Copy Coords", systemImage: copied ? "checkmark" : "doc.on.doc")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glass)
 
-                if let mapURL = URL(string: "https://maps.apple.com/?ll=\(lat),\(lon)&q=\(lat),\(lon)") {
-                    Button {
+                Button {
+                    let encoded = (label ?? "Dropped Pin").addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                    if let mapURL = URL(string: "https://maps.apple.com/?ll=\(lat),\(lon)&q=\(encoded)") {
                         openURL(mapURL)
                         dismiss()
-                    } label: {
-                        Label("Open Maps", systemImage: "map.fill")
-                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glassProminent)
+                } label: {
+                    Label("Open in Apple Maps", systemImage: "map.fill")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.glassProminent)
             }
+
+        case .encryptedVault:
+            Button {
+                showSecretVaultUnlockSheet = true
+            } label: {
+                Label("Unlock Vault", systemImage: "lock.open.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glassProminent)
 
         case .productBarcode(let code, _):
             HStack(spacing: 12) {
@@ -741,6 +846,7 @@ public struct ScanResultSheetView: View {
         case .sms: return "message.fill"
         case .contact: return "person.crop.circle"
         case .geo: return "map.fill"
+        case .encryptedVault: return "lock.shield.fill"
         case .productBarcode: return "barcode.viewfinder"
         case .text: return "doc.text"
         }
@@ -754,7 +860,8 @@ public struct ScanResultSheetView: View {
         case .phone: return "Phone Number"
         case .sms: return "SMS Message"
         case .contact: return "Contact vCard"
-        case .geo: return "Map Coordinates"
+        case .geo: return "Apple Map Location"
+        case .encryptedVault: return "Encrypted Vault"
         case .productBarcode(_, let format): return "\(format) Barcode"
         case .text: return "Text Payload"
         }

@@ -30,6 +30,10 @@
 	<string>GlassQR needs permission to save generated QR codes to your photo library.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>GlassQR uses NFC to read smart tags and write QR code payloads directly to physical NFC tags.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>GlassQR uses Face ID to decrypt and unlock zero-knowledge encrypted QR codes.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>GlassQR uses your location to drop a pin on Apple Maps and generate location QR codes.</string>
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
 		<string>NDEF</string>

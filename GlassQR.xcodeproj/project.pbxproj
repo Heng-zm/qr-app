@@ -34,6 +34,9 @@
 		1B0000250000000000000025 /* TranslationSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000260000000000000026 /* TranslationSheetView.swift */; };
 		1B0000260000000000000026 /* NFCManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000270000000000000027 /* NFCManager.swift */; };
 		1B0000270000000000000027 /* NFCStudioSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000280000000000000028 /* NFCStudioSheetView.swift */; };
+		1B0000280000000000000028 /* SteganographicQREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000290000000000000029 /* SteganographicQREngine.swift */; };
+		1B0000290000000000000029 /* SecretVaultUnlockSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000300000000000000030 /* SecretVaultUnlockSheetView.swift */; };
+		1B0000300000000000000030 /* MapLocationPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000310000000000000031 /* MapLocationPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +69,9 @@
 		1A0000260000000000000026 /* TranslationSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationSheetView.swift; sourceTree = "<group>"; };
 		1A0000270000000000000027 /* NFCManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCManager.swift; sourceTree = "<group>"; };
 		1A0000280000000000000028 /* NFCStudioSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCStudioSheetView.swift; sourceTree = "<group>"; };
+		1A0000290000000000000029 /* SteganographicQREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SteganographicQREngine.swift; sourceTree = "<group>"; };
+		1A0000300000000000000030 /* SecretVaultUnlockSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretVaultUnlockSheetView.swift; sourceTree = "<group>"; };
+		1A0000310000000000000031 /* MapLocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationPickerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,8 +141,17 @@
 				1C0000180000000000000018 /* OCR */,
 				1C0000190000000000000019 /* Translation */,
 				1C0000200000000000000020 /* NFC */,
+				1C0000230000000000000023 /* Crypto */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		1C0000230000000000000023 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000290000000000000029 /* SteganographicQREngine.swift */,
+			);
+			path = Crypto;
 			sourceTree = "<group>";
 		};
 		1C0000070000000000000007 /* DesignSystem */ = {
@@ -247,6 +262,7 @@
 			children = (
 				1A0000090000000000000009 /* CrispQRRenderer.swift */,
 				1A0000100000000000000010 /* GeneratorView.swift */,
+				1A0000310000000000000031 /* MapLocationPickerView.swift */,
 			);
 			path = Generator;
 			sourceTree = "<group>";
@@ -260,6 +276,7 @@
 				1A0000140000000000000014 /* ScanResultSheetView.swift */,
 				1A0000150000000000000015 /* ScannerView.swift */,
 				1A0000240000000000000024 /* TextOCRSheetView.swift */,
+				1A0000300000000000000030 /* SecretVaultUnlockSheetView.swift */,
 			);
 			path = Scanner;
 			sourceTree = "<group>";
@@ -377,6 +394,9 @@
 				1B0000250000000000000025 /* TranslationSheetView.swift in Sources */,
 				1B0000260000000000000026 /* NFCManager.swift in Sources */,
 				1B0000270000000000000027 /* NFCStudioSheetView.swift in Sources */,
+				1B0000280000000000000028 /* SteganographicQREngine.swift in Sources */,
+				1B0000290000000000000029 /* SecretVaultUnlockSheetView.swift in Sources */,
+				1B0000300000000000000030 /* MapLocationPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

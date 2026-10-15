@@ -36,6 +36,8 @@ GlassQR/
     │   │   └── ReplayOnboardingButton.swift # Toolbar quick-replay test component
     │   ├── AI/
     │   │   └── GlassAIEngine.swift          # Dual-engine on-device heuristics & cloud LLM
+    │   ├── Crypto/
+    │   │   └── SteganographicQREngine.swift # Zero-knowledge AES-GCM 256-bit & Biometric Face ID vault
     │   ├── OCR/
     │   │   └── LiveTextScannerRepresentable.swift # VisionKit DataScannerViewController & simulator fallback
     │   ├── Translation/
@@ -50,14 +52,16 @@ GlassQR/
     │   │
     │   ├── Generator/
     │   │   ├── GeneratorView.swift          # Live input bar, morphing clear, crisp QR card
-    │   │   └── CrispQRRenderer.swift        # CoreImage CIFilter vector rendering engine
+    │   │   ├── CrispQRRenderer.swift        # CoreImage CIFilter vector rendering engine
+    │   │   └── MapLocationPickerView.swift  # Interactive Apple Maps pin dropper & geocoding studio
     │   │
     │   ├── Scanner/
     │   │   ├── ScannerView.swift            # Main scanner screen with HUD & sheet
     │   │   ├── CameraEngineRepresentable.swift # AVCaptureSession & simulator fallback
     │   │   ├── ScannerReticleView.swift     # Viewfinder corner targeting brackets
     │   │   ├── ScanningLaserView.swift      # Glowing oscillating laser bar
-    │   │   ├── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet
+    │   │   ├── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet & Apple Map preview
+    │   │   ├── SecretVaultUnlockSheetView.swift # Biometric Face ID / Passcode encrypted QR unlock studio
     │   │   └── TextOCRSheetView.swift       # Live Camera Text OCR to QR modal studio
     │   │
     │   ├── Translation/
@@ -74,7 +78,7 @@ GlassQR/
     │       └── RootContentView.swift       # Root coordinator between Onboarding & TabView
     │
     └── Resources/
-        ├── Info.plist                       # Camera & NFC permissions (NFCReaderUsageDescription)
+        ├── Info.plist                       # Camera, NFC, Face ID & Location permissions
         └── Assets.xcassets/                 # App icon & AccentColor assets
 ```
 
@@ -185,6 +189,32 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Integrated capacity validation, lock status query, and success confirmation chimes.
 - **Full Simulator & CI Support**:
   - Built-in `SimulatedNFCTag` presets ("Office Wi-Fi Tag", "Web URI Tag", "Business Card vCard Tag") allow complete testing on simulators and headless GitHub Actions without hardware dependencies.
+
+### 8. Zero-Knowledge Steganographic Encrypted QR (CryptoKit & Face ID) 🔐
+- **Zero-Knowledge Architecture**:
+  - Military-grade **AES-GCM 256-bit** authenticated symmetric encryption powered by Apple's hardware-backed `CryptoKit`.
+  - Keys derived via SHA-256 with nonce and 128-bit authentication tag verification. Secrets are encrypted and decrypted purely in device RAM — zero data ever touches disk or the cloud.
+- **Steganographic Disguise**:
+  - To third-party scanners, camera apps, or onlookers, the generated QR appears as an innocent, ordinary web address (e.g. `https://glassqr.app/vault#enc=...` or custom decoy URL).
+  - GlassQR automatically detects the cryptographic steganographic header signature (`GQR_VAULT:1:`).
+- **Biometric Face ID / Touch ID / Passcode Vault**:
+  - Scanning an encrypted QR automatically raises the biometric authentication modal (`LocalAuthentication` framework).
+  - Optional fallback to user's secret password/passcode.
+  - **Auto-Scrub Memory Security**: Auto-locks after 30 seconds of inactivity to protect sensitive passwords, private keys, seeds, and medical records from shoulder-surfing.
+
+### 9. Interactive Apple Maps Pin Dropper & Geolocation Studio (`MapKit`) 📍
+- **Default Apple Maps Pin Dropping (`MapKit.Map`)**:
+  - Drop a pin anywhere on the globe with fluid pan, pinch, and zoom controls.
+  - Centered crosshair target with drop pin indicator and coordinate badge displaying precise latitude and longitude to 6 decimal places.
+- **Instant Search & Autocomplete (`MKLocalSearch`)**:
+  - Search any place, business, café, landmark, or address worldwide with real-time suggestion pills and 1-tap camera centering.
+- **One-Tap Current Location GPS (`CoreLocation`)**:
+  - Real-time GPS location button centers the map instantly on user's current coordinates.
+- **Reverse Geocoding (`CLGeocoder`)**:
+  - Converts dropped coordinates in real time into human-readable street names, cities, and administrative areas.
+- **Universal Apple Maps QR Generator & Native Scanner Preview**:
+  - Encodes coordinates into standard Apple Maps deep-links (`maps.apple.com/?ll=...&q=...`).
+  - Scanned location QRs render a high-fidelity native Apple Maps widget with a custom pin marker, address header, coordinate badge, and 1-tap **"Open in Apple Maps"** navigation button.
 
 ---
 

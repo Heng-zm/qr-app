@@ -17,6 +17,8 @@ public struct GeneratorView: View {
     private enum GeneratorTemplate: String, CaseIterable, Identifiable {
         case url = "Link"
         case wifi = "Wi-Fi"
+        case location = "Map Location"
+        case vault = "Secret Vault"
         case contact = "Contact"
         case sms = "SMS"
         case email = "Email"
@@ -27,6 +29,8 @@ public struct GeneratorView: View {
             switch self {
             case .url: return "link"
             case .wifi: return "wifi"
+            case .location: return "mappin.and.ellipse"
+            case .vault: return "lock.shield.fill"
             case .contact: return "person.crop.circle"
             case .sms: return "message.fill"
             case .email: return "envelope"
@@ -104,6 +108,17 @@ public struct GeneratorView: View {
     // Email Specialized Inputs
     @State private var emailAddress: String = ""
     @State private var emailSubject: String = ""
+
+    // Map Location Specialized Inputs (Apple Maps)
+    @State private var locationLatitude: Double = 37.3346
+    @State private var locationLongitude: Double = -122.0090
+    @State private var locationName: String = "Apple Park, Cupertino"
+    @State private var showMapLocationPicker: Bool = false
+
+    // Zero-Knowledge Encrypted Vault Inputs
+    @State private var vaultSecretText: String = ""
+    @State private var vaultPasscode: String = ""
+    @State private var vaultDecoyURL: String = "https://glassqr.app/vault"
 
     // Rendered QR State
     @State private var qrImage: UIImage? = nil
@@ -238,6 +253,14 @@ public struct GeneratorView: View {
             NFCStudioSheetView(
                 isPresented: $showNFCSheet,
                 initialWritePayload: currentPayload
+            )
+        }
+        .sheet(isPresented: $showMapLocationPicker) {
+            MapLocationPickerView(
+                isPresented: $showMapLocationPicker,
+                latitude: $locationLatitude,
+                longitude: $locationLongitude,
+                locationName: $locationName
             )
         }
         .onAppear {
@@ -480,6 +503,88 @@ public struct GeneratorView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    .background(cleanPillBackground)
+                }
+
+            case .location:
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundStyle(Color.red)
+                            .frame(width: 20)
+                        TextField("Location / Venue Name", text: $locationName)
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(cleanPillBackground)
+
+                    Button {
+                        showMapLocationPicker = true
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "map.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(Color.red)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Drop Pin on Apple Maps")
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.white)
+                                Text(String(format: "%.4f°, %.4f°", locationLatitude, locationLongitude))
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
+                }
+
+            case .vault:
+                VStack(spacing: 10) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock.shield.fill")
+                            .foregroundStyle(Color.cyan)
+                            .frame(width: 20)
+                        TextField("Confidential Note, Password or Seed...", text: $vaultSecretText, axis: .vertical)
+                            .lineLimit(2...4)
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(cleanPillBackground)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(Color.yellow)
+                            .frame(width: 20)
+                        SecureField("Passcode or PIN (Required)", text: $vaultPasscode)
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(cleanPillBackground)
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "link")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                        TextField("Decoy URL (Disguise)", text: $vaultDecoyURL)
+                            .textInputAutocapitalization(.never)
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                     .background(cleanPillBackground)
                 }
             }
@@ -885,6 +990,18 @@ public struct GeneratorView: View {
                 return "mailto:\(emailAddress)?subject=\(encodedSubject)"
             }
             return "mailto:\(emailAddress)"
+
+        case .location:
+            let encodedName = locationName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            return "https://maps.apple.com/?ll=\(String(format: "%.5f", locationLatitude)),\(String(format: "%.5f", locationLongitude))&q=\(encodedName)"
+
+        case .vault:
+            guard !vaultSecretText.isEmpty, !vaultPasscode.isEmpty else { return "" }
+            return (try? SteganographicQREngine.encrypt(
+                secretText: vaultSecretText,
+                passcode: vaultPasscode,
+                decoyURL: vaultDecoyURL
+            )) ?? ""
         }
     }
 
@@ -906,6 +1023,14 @@ public struct GeneratorView: View {
         case .email:
             emailAddress = "developer@apple.com"
             emailSubject = "GlassQR Inquiry"
+        case .location:
+            locationLatitude = 37.3346
+            locationLongitude = -122.0090
+            locationName = "Apple Park, Cupertino"
+        case .vault:
+            vaultSecretText = "Confidential Recovery Seed: apple ocean glass liquid neon cipher"
+            vaultPasscode = "2026"
+            vaultDecoyURL = "https://glassqr.app/vault"
         case .text:
             inputText = "Hello from GlassQR"
         }

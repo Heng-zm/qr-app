@@ -51,12 +51,19 @@ public struct ScanResultItem: Identifiable, Equatable, Sendable, Codable {
         case sms(number: String, message: String?)
         case contact(name: String, phone: String?, email: String?, org: String?)
         case geo(latitude: Double, longitude: Double, label: String?)
+        case encryptedVault(ciphertext: String, decoyURL: String?)
         case productBarcode(code: String, format: String)
         case text(String)
     }
 
     public var category: PayloadCategory {
         let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Steganographic Encrypted Vault check
+        if SteganographicQREngine.isEncryptedPayload(trimmed),
+           let ciphertext = SteganographicQREngine.extractCiphertext(from: trimmed) {
+            return .encryptedVault(ciphertext: ciphertext, decoyURL: trimmed)
+        }
 
         // Product Barcodes (EAN, UPC, Code 128, etc.)
         if symbology != "QR Code" {
@@ -131,6 +138,36 @@ public struct ScanResultItem: Identifiable, Equatable, Sendable, Codable {
                let lat = Double(coords[0].trimmingCharacters(in: .whitespaces)),
                let lon = Double(coords[1].split(separator: "?").first?.trimmingCharacters(in: .whitespaces) ?? "") {
                 return .geo(latitude: lat, longitude: lon, label: nil)
+            }
+        }
+
+        // Apple Maps & Google Maps URL detection
+        if trimmed.contains("maps.apple.com") || trimmed.contains("maps.google.com") {
+            if let url = URL(string: trimmed), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                var lat: Double? = nil
+                var lon: Double? = nil
+                var label: String? = nil
+
+                if let ll = components.queryItems?.first(where: { $0.name == "ll" })?.value {
+                    let parts = ll.split(separator: ",")
+                    if parts.count >= 2 {
+                        lat = Double(parts[0].trimmingCharacters(in: .whitespaces))
+                        lon = Double(parts[1].trimmingCharacters(in: .whitespaces))
+                    }
+                }
+                if let q = components.queryItems?.first(where: { $0.name == "q" })?.value {
+                    label = q
+                    if lat == nil {
+                        let parts = q.split(separator: ",")
+                        if parts.count >= 2 {
+                            lat = Double(parts[0].trimmingCharacters(in: .whitespaces))
+                            lon = Double(parts[1].trimmingCharacters(in: .whitespaces))
+                        }
+                    }
+                }
+                if let validLat = lat, let validLon = lon {
+                    return .geo(latitude: validLat, longitude: validLon, label: label)
+                }
             }
         }
 
