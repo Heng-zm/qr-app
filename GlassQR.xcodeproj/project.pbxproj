@@ -25,6 +25,9 @@
 		1B0000160000000000000016 /* MainGlassTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000160000000000000016 /* MainGlassTabView.swift */; };
 		1B0000170000000000000017 /* RootContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000170000000000000017 /* RootContentView.swift */; };
 		1B0000180000000000000018 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000180000000000000018 /* Assets.xcassets */; };
+		1B0000190000000000000019 /* AIAgentMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000200000000000000020 /* AIAgentMessage.swift */; };
+		1B0000200000000000000020 /* GlassAIEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000210000000000000021 /* GlassAIEngine.swift */; };
+		1B0000210000000000000021 /* AIAssistantView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000220000000000000022 /* AIAssistantView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,6 +51,9 @@
 		1A0000170000000000000017 /* RootContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootContentView.swift; sourceTree = "<group>"; };
 		1A0000180000000000000018 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A0000190000000000000019 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		1A0000200000000000000020 /* AIAgentMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAgentMessage.swift; sourceTree = "<group>"; };
+		1A0000210000000000000021 /* GlassAIEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassAIEngine.swift; sourceTree = "<group>"; };
+		1A0000220000000000000022 /* AIAssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAssistantView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +108,7 @@
 			children = (
 				1A0000020000000000000002 /* FeatureHighlight.swift */,
 				1A0000030000000000000003 /* ScanResultItem.swift */,
+				1A0000200000000000000020 /* AIAgentMessage.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -112,6 +119,7 @@
 				1C0000070000000000000007 /* DesignSystem */,
 				1C0000080000000000000008 /* Background */,
 				1C0000090000000000000009 /* Components */,
+				1C0000160000000000000016 /* AI */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -140,15 +148,32 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		1C0000160000000000000016 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000210000000000000021 /* GlassAIEngine.swift */,
+			);
+			path = AI;
+			sourceTree = "<group>";
+		};
 		1C0000100000000000000010 /* Features */ = {
 			isa = PBXGroup;
 			children = (
 				1C0000110000000000000011 /* Onboarding */,
 				1C0000120000000000000012 /* Generator */,
 				1C0000130000000000000013 /* Scanner */,
+				1C0000170000000000000017 /* Assistant */,
 				1C0000140000000000000014 /* Navigation */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		1C0000170000000000000017 /* Assistant */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000220000000000000022 /* AIAssistantView.swift */,
+			);
+			path = Assistant;
 			sourceTree = "<group>";
 		};
 		1C0000110000000000000011 /* Onboarding */ = {
@@ -285,6 +310,9 @@
 				1B0000150000000000000015 /* ScannerView.swift in Sources */,
 				1B0000160000000000000016 /* MainGlassTabView.swift in Sources */,
 				1B0000170000000000000017 /* RootContentView.swift in Sources */,
+				1B0000190000000000000019 /* AIAgentMessage.swift in Sources */,
+				1B0000200000000000000020 /* GlassAIEngine.swift in Sources */,
+				1B0000210000000000000021 /* AIAssistantView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

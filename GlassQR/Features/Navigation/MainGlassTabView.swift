@@ -13,6 +13,7 @@ public struct MainGlassTabView: View {
     public enum TabItem: String, CaseIterable, Identifiable {
         case generator = "Generate"
         case scanner = "Scan"
+        case assistant = "AI Agent"
 
         public var id: String { rawValue }
 
@@ -20,6 +21,7 @@ public struct MainGlassTabView: View {
             switch self {
             case .generator: return "qrcode"
             case .scanner: return "qrcode.viewfinder"
+            case .assistant: return "sparkles"
             }
         }
     }
@@ -57,6 +59,17 @@ public struct MainGlassTabView: View {
                             }
                     }
                     .transition(.opacity)
+
+                case .assistant:
+                    NavigationStack {
+                        AIAssistantView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarTrailing) {
+                                    ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
+                                }
+                            }
+                    }
+                    .transition(.opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -65,7 +78,7 @@ public struct MainGlassTabView: View {
             GlassEffectContainer(spacing: 12) {
                 liquidGlassBottomNavBar
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -74,7 +87,7 @@ public struct MainGlassTabView: View {
     // MARK: - Native iOS 26 Liquid Glass Bottom Nav
 
     private var liquidGlassBottomNavBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(TabItem.allCases) { tab in
                 tabButton(for: tab)
             }
@@ -92,15 +105,16 @@ public struct MainGlassTabView: View {
                 }
             }
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 16, weight: selectedTab == tab ? .bold : .medium))
+                    .font(.system(size: 15, weight: selectedTab == tab ? .bold : .medium))
                     .symbolEffect(.bounce, value: selectedTab == tab)
 
                 Text(tab.rawValue)
-                    .font(.system(size: 13, weight: selectedTab == tab ? .bold : .semibold, design: .rounded))
+                    .font(.system(size: 12, weight: selectedTab == tab ? .bold : .semibold, design: .rounded))
+                    .lineLimit(1)
             }
-            .frame(width: 114)
+            .frame(minWidth: 80, maxWidth: .infinity)
             .padding(.vertical, 10)
             .foregroundStyle(
                 selectedTab == tab

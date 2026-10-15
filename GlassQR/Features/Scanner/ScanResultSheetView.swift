@@ -15,6 +15,7 @@ public struct ScanResultSheetView: View {
     @State private var copied: Bool = false
     @State private var copiedPassword: Bool = false
     @State private var copyHapticTrigger: Int = 0
+    @State private var showAIAssistantSheet: Bool = false
 
     public init(result: ScanResultItem) {
         self.result = result
@@ -104,6 +105,26 @@ public struct ScanResultSheetView: View {
                 // Clean Action Buttons
                 VStack(spacing: 10) {
                     actionButtons
+
+                    Button {
+                        showAIAssistantSheet = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [.cyan, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            Text("Analyze with AI Assistant")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
                 }
                 .padding(.horizontal, 24)
 
@@ -111,6 +132,19 @@ public struct ScanResultSheetView: View {
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)
+        .sheet(isPresented: $showAIAssistantSheet) {
+            NavigationStack {
+                AIAssistantView(hasCompletedOnboarding: .constant(true), initialScanItem: result)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close") {
+                                showAIAssistantSheet = false
+                            }
+                            .foregroundStyle(.white)
+                        }
+                    }
+            }
+        }
     }
 
     // MARK: - Category Cards

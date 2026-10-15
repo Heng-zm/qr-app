@@ -24,15 +24,18 @@ GlassQR/
     │
     ├── Models/
     │   ├── FeatureHighlight.swift           # Model for Onboarding screen features
-    │   └── ScanResultItem.swift             # Model for decoded QR payload & URL detection
+    │   ├── ScanResultItem.swift             # Model for decoded QR payload & URL detection
+    │   └── AIAgentMessage.swift             # Model for AI messages, threat levels & QR widgets
     │
     ├── Core/
     │   ├── DesignSystem/
     │   │   └── LiquidGlassSystem.swift      # Native iOS 26 Liquid Glass modifiers & button styles
     │   ├── Background/
     │   │   └── LiquidMeshGradientView.swift # Living animated MeshGradient background
-    │   └── Components/
-    │       └── ReplayOnboardingButton.swift # Toolbar quick-replay test component
+    │   ├── Components/
+    │   │   └── ReplayOnboardingButton.swift # Toolbar quick-replay test component
+    │   └── AI/
+    │       └── GlassAIEngine.swift          # Dual-engine on-device heuristics & cloud LLM
     │
     ├── Features/
     │   ├── Onboarding/
@@ -50,8 +53,11 @@ GlassQR/
     │   │   ├── ScanningLaserView.swift      # Glowing oscillating laser bar
     │   │   └── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet
     │   │
+    │   ├── Assistant/
+    │   │   └── AIAssistantView.swift        # Liquid Glass AI Agent chat, threat inspector & QR generator
+    │   │
     │   └── Navigation/
-    │       ├── MainGlassTabView.swift       # Native TabView platter ("Generate" & "Scan")
+    │       ├── MainGlassTabView.swift       # 3-tab platter ("Generate", "Scan" & "AI Agent")
     │       └── RootContentView.swift       # Root coordinator between Onboarding & TabView
     │
     └── Resources/
@@ -113,7 +119,23 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Thread-safe camera capture running on a dedicated serial background queue with tap-to-focus and optical zoom.
   - Automatic detection of simulator/preview environments with interactive bypass testing chips.
 
-### 3. Living Liquid MeshGradient
+### 3. Glass AI Agent Assistant & Security Copilot
+- **Natural Language QR Generation**:
+  - Direct speech-to-code understanding: "Generate a guest Wi-Fi QR for OfficeNet with password Welcome2026!" or "Create a vCard for Alex Chen with email alex@corp.com".
+  - Instantly constructs compliant RFC schemas (Wi-Fi consortium strings, vCard 3.0, URL structures, SMS, Tel).
+  - Renders live interactive QR previews inside the chat bubble with 1-tap **"Copy Data"** and **"Save Photo"**.
+- **Intelligent Threat & Link Safety Inspection**:
+  - Scans URLs for phishing signals, direct numeric IP hosts, punycode/homograph domain spoofs, unencrypted HTTP protocols, and risky executable downloads (.apk, .exe, .dmg).
+  - Visual status badges (**Safe & Verified**, **Caution Recommended**, **Potential Threat**).
+- **Barcode & GS1 Symbology Explainer**:
+  - Automatically identifies GS1 country prefixes (e.g. 000-139 USA/Canada, 400-440 Germany, 450-499 Japan, 500-509 UK, etc.) and retail standard formats.
+- **Dual Engine Architecture**:
+  - **100% On-Device Neural Engine (Default)**: Zero latency, offline heuristics, zero data leaves the device.
+  - **Cloud LLM Integration (Optional)**: Connect an OpenAI or Gemini API key in settings for unlimited general reasoning.
+- **Direct Scan Integration**:
+  - Tap **"Analyze with AI Assistant"** directly from any camera scan sheet for instant security breakdowns.
+
+### 4. Living Liquid MeshGradient
 - An oscillating `MeshGradient` powered by `TimelineView(.animation)` shifts through deep midnight indigo, electric violet, ocean cyan, and liquid magenta, creating a rich dynamic palette that refracts through every floating glass element in real time.
 
 ---

@@ -30,6 +30,12 @@ public struct WelcomeView: View {
             icon: "square.and.arrow.up.fill",
             title: "One-Tap Liquid Share",
             subtitle: "Fluidly export and share high-res codes with native glass sheets."
+        ),
+        FeatureHighlight(
+            id: "aiCopilot",
+            icon: "sparkles",
+            title: "Glass AI Assistant",
+            subtitle: "Generate styled codes from natural text and analyze links for security."
         )
     ]
 
