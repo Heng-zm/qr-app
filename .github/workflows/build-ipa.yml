@@ -3,6 +3,7 @@ name: Build iPhone IPA
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -15,6 +16,9 @@ on:
         options:
           - Release
           - Debug
+
+permissions:
+  contents: write
 
 jobs:
   build-ipa:
@@ -152,3 +156,32 @@ jobs:
           path: build/output/GlassQR.ipa
           retention-days: 14
           if-no-files-found: error
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('GlassQR v1.0.{0}', github.run_number) }}
+          body: |
+            ## GlassQR - iPhone Application Package (.ipa)
+
+            ### 📱 Sideload Installation
+            Download **`GlassQR.ipa`** from the Assets below and install it using any of the following:
+            - **AltStore / AltServer**
+            - **Sideloadly**
+            - **TrollStore**
+            - **Xcode (Devices & Simulators)**
+
+            ---
+
+            ### ✨ Key Features Included:
+            - **Native iOS 26 Liquid Glass Design System**: Specular highlights, `.glassEffect()` lensed glass styling, and native floating platters.
+            - **Living Undulating MeshGradient Background**: Powered by `TimelineView(.animation)` and `MeshGradient` shifting through deep indigo, cyan, violet, and magenta.
+            - **Hardware-Accelerated QR Generator**: Real-time vector QR generation via `CoreImage.CIFilterBuiltins`.
+            - **Live AVFoundation QR Scanner**: Real-time camera viewfinder with animated laser reticle and interactive Simulator test mode.
+          draft: false
+          prerelease: false
+          files: build/output/GlassQR.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
