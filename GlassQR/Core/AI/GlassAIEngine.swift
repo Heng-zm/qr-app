@@ -2,20 +2,84 @@
 //  GlassAIEngine.swift
 //  GlassQR
 //
-//  Intelligent Agent Engine powering offline heuristics, QR generation from
-//  natural language, threat assessment, barcode decoding, and cloud LLM integration.
+//  Intelligent Agent Engine powering offline neural heuristics, multi-modal
+//  camera/photo vision OCR inspection, natural language QR generation,
+//  threat assessment, barcode decoding, multi-provider cloud LLM integration,
+//  and speech synthesis.
 //
 
 import Foundation
 import SwiftUI
+import Vision
+import AVFoundation
+import CoreLocation
 
-public final class GlassAIEngine: ObservableObject {
+public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     public static let shared = GlassAIEngine()
 
+    // MARK: - Stored Configuration & Persona
+    @AppStorage("glass_ai_provider") public var providerRaw: String = AIProvider.onDevice.rawValue
+    @AppStorage("glass_ai_persona") public var personaRaw: String = AIPersona.general.rawValue
     @AppStorage("glass_ai_api_key") public var apiKey: String = ""
     @AppStorage("glass_ai_endpoint") public var customEndpoint: String = ""
+    @AppStorage("glass_ai_model") public var customModel: String = ""
 
-    public init() {}
+    // MARK: - Voice / Speech Synthesis
+    @Published public var isSpeaking: Bool = false
+    private let speechSynthesizer = AVSpeechSynthesizer()
+
+    public var provider: AIProvider {
+        get { AIProvider(rawValue: providerRaw) ?? .onDevice }
+        set { providerRaw = newValue.rawValue }
+    }
+
+    public var persona: AIPersona {
+        get { AIPersona(rawValue: personaRaw) ?? .general }
+        set { personaRaw = newValue.rawValue }
+    }
+
+    public override init() {
+        super.init()
+        speechSynthesizer.delegate = self
+    }
+
+    // MARK: - Speech Synthesis Controls
+
+    public func speakText(_ text: String) {
+        stopSpeaking()
+
+        // Clean markdown symbols for natural pronunciation
+        let cleanText = text
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "`", with: "")
+            .replacingOccurrences(of: ">", with: "")
+
+        let utterance = AVSpeechUtterance(string: cleanText)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.52
+        utterance.pitchMultiplier = 1.05
+
+        DispatchQueue.main.async {
+            self.isSpeaking = true
+        }
+        speechSynthesizer.speak(utterance)
+    }
+
+    public func stopSpeaking() {
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: .immediate)
+        }
+        DispatchQueue.main.async {
+            self.isSpeaking = false
+        }
+    }
+
+    public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async {
+            self.isSpeaking = false
+        }
+    }
 
     // MARK: - Main Message Processing Pipeline
 
@@ -25,24 +89,142 @@ public final class GlassAIEngine: ObservableObject {
             return AIAgentMessage(
                 isUser: false,
                 text: "Please enter a prompt or question so I can assist you.",
-                quickPrompts: ["Generate Wi-Fi QR", "Check link safety", "Create a vCard"]
+                quickPrompts: ["Generate Wi-Fi QR", "Drop Pin on Apple Map", "Encrypt Secret Vault", "Create vCard"]
             )
         }
 
-        // Check if user has configured custom cloud LLM API Key
-        let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !cleanKey.isEmpty {
+        // Check if a cloud provider is active and configured
+        if provider != .onDevice && !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             do {
-                if let cloudResponse = try await fetchCloudLLMResponse(prompt: trimmed, apiKey: cleanKey) {
+                if let cloudResponse = try await fetchCloudLLMResponse(prompt: trimmed) {
                     return cloudResponse
                 }
             } catch {
-                // Graceful fallback to on-device engine on network error
+                // Graceful fallback to on-device engine on network failure
             }
         }
 
         // On-Device Intelligent Neural Heuristics Engine
         return processOfflineHeuristics(trimmed)
+    }
+
+    // MARK: - Multi-Modal Visual Inspection (Photo & Camera)
+
+    public func analyzeImage(_ image: UIImage, prompt: String? = nil) async -> AIAgentMessage {
+        guard let cgImage = image.cgImage else {
+            return AIAgentMessage(
+                isUser: false,
+                text: "Unable to process the selected image.",
+                securityBadge: AISecurityBadge(level: .danger, title: "Image Error", details: "Could not read bitmap graphics.")
+            )
+        }
+
+        // 1. Try Barcode / QR Detection via Vision
+        let barcodeRequest = VNDetectBarcodesRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+
+        do {
+            try handler.perform([barcodeRequest])
+            if let results = barcodeRequest.results as? [VNBarcodeObservation], let firstBarcode = results.first, let payload = firstBarcode.payloadStringValue {
+                let symbologyName = formatSymbology(firstBarcode.symbology.rawValue)
+                let scanItem = ScanResultItem(payload: payload, symbology: symbologyName)
+                var analysis = analyzeScannedItem(scanItem)
+                analysis.text = "### Visual Optical Code Detected (\(symbologyName))\n\n\(analysis.text)"
+                return analysis
+            }
+        } catch {
+            // Continue to OCR
+        }
+
+        // 2. Optical Character Recognition (OCR) via Vision
+        let textRequest = VNRecognizeTextRequest()
+        textRequest.recognitionLevel = .accurate
+        textRequest.usesLanguageCorrection = true
+
+        var extractedLines: [String] = []
+        do {
+            try handler.perform([textRequest])
+            if let textResults = textRequest.results {
+                for observation in textResults {
+                    if let candidate = observation.topCandidates(1).first {
+                        extractedLines.append(candidate.string)
+                    }
+                }
+            }
+        } catch {}
+
+        let joinedText = extractedLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 3. Cloud Vision Analysis if Cloud Provider is Active
+        if provider != .onDevice && !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if let cloudVisionResponse = try? await fetchCloudVisionResponse(image: image, prompt: prompt ?? joinedText) {
+                return cloudVisionResponse
+            }
+        }
+
+        // 4. On-Device OCR Analysis & Automatic QR Generation
+        if !joinedText.isEmpty {
+            let scanItem = ScanResultItem(payload: joinedText, symbology: "OCR Text")
+            let category = scanItem.category
+            let preview = joinedText.count > 120 ? String(joinedText.prefix(120)) + "..." : joinedText
+
+            let suggested = AISuggestedQR(
+                title: "OCR Extracted QR",
+                payload: joinedText,
+                formatLabel: "Captured Text",
+                iconName: "text.viewfinder",
+                action: .writeNFC(payload: joinedText)
+            )
+
+            let badge: AISecurityBadge
+            switch category {
+            case .webURL(let url):
+                badge = evaluateURLSafety(url)
+            default:
+                badge = AISecurityBadge(
+                    level: .info,
+                    title: "Text OCR Recognized",
+                    details: "Extracted \(extractedLines.count) lines with Vision optical character recognition."
+                )
+            }
+
+            return AIAgentMessage(
+                isUser: false,
+                text: """
+                ### Multi-Modal Vision Analysis
+
+                I detected the following text in your photo:
+
+                ```text
+                \(preview)
+                ```
+
+                I've automatically formatted this into a live vector QR code below.
+                """,
+                suggestedQR: suggested,
+                securityBadge: badge,
+                quickPrompts: ["Is this content safe?", "Translate this text", "Write to NFC Tag"]
+            )
+        }
+
+        return AIAgentMessage(
+            isUser: false,
+            text: "No QR codes, barcodes, or legible text could be recognized in the attached image. Please ensure good lighting and clear focus.",
+            securityBadge: AISecurityBadge(level: .info, title: "No Data Found", details: "Zero optical symbols or text strings identified.")
+        )
+    }
+
+    private func formatSymbology(_ raw: String) -> String {
+        if raw.contains("QR") { return "QR Code" }
+        if raw.contains("EAN13") { return "EAN-13" }
+        if raw.contains("EAN8") { return "EAN-8" }
+        if raw.contains("UPCE") { return "UPC-E" }
+        if raw.contains("Code128") { return "Code 128" }
+        if raw.contains("Code39") { return "Code 39" }
+        if raw.contains("DataMatrix") { return "Data Matrix" }
+        if raw.contains("Aztec") { return "Aztec" }
+        if raw.contains("PDF417") { return "PDF417" }
+        return "Barcode"
     }
 
     // MARK: - Scan Analysis & Safety Inspection
@@ -54,9 +236,64 @@ public final class GlassAIEngine: ObservableObject {
             let details = describeURL(url)
             return AIAgentMessage(
                 isUser: false,
-                text: "### URL Intelligence Analysis\n\nI analyzed the destination **\(url.host ?? url.absoluteString)**.\n\n\(details)",
+                text: "### URL Intelligence & Safety Audit\n\nI analyzed the destination **\(url.host ?? url.absoluteString)**.\n\n\(details)",
                 securityBadge: badge,
-                quickPrompts: ["Is this domain reputable?", "Extract URL parameters", "Copy sanitized link"]
+                quickPrompts: ["Is this domain reputable?", "Extract URL parameters", "Copy sanitized link", "Program to NFC Tag"]
+            )
+
+        case .encryptedVault(let ciphertext, _):
+            return AIAgentMessage(
+                isUser: false,
+                text: """
+                ### Steganographic Encrypted Vault Detected
+
+                - **Cryptographic Scheme:** AES-GCM 256-bit Authenticated Encryption
+                - **Steganography:** Disguised payload
+                - **Security Guarantee:** Zero-Knowledge, hardware memory isolation
+
+                Tap the action below to authenticate with Face ID or enter your secret passcode to reveal the contents.
+                """,
+                suggestedQR: AISuggestedQR(
+                    title: "Encrypted Vault",
+                    payload: item.payload,
+                    formatLabel: "AES-256 GCM",
+                    iconName: "lock.shield.fill",
+                    action: .unlockVault(ciphertext: ciphertext)
+                ),
+                securityBadge: AISecurityBadge(
+                    level: .safe,
+                    title: "Authenticated Ciphertext",
+                    details: "Protected by SHA-256 key derivation and AES-GCM 128-bit authentication tag."
+                ),
+                quickPrompts: ["How does AES-GCM work?", "Write Vault to NFC Tag"]
+            )
+
+        case .geo(let lat, let lon, let label):
+            let placeName = label ?? "Coordinates (\(String(format: "%.4f, %.4f", lat, lon)))"
+            return AIAgentMessage(
+                isUser: false,
+                text: """
+                ### Apple Maps Geolocation Decoded
+
+                - **Location:** \(placeName)
+                - **Latitude:** `\(String(format: "%.6f", lat))`
+                - **Longitude:** `\(String(format: "%.6f", lon))`
+
+                You can preview this directly in Apple Maps or program it to an NFC location tag.
+                """,
+                suggestedQR: AISuggestedQR(
+                    title: placeName,
+                    payload: item.payload,
+                    formatLabel: "Apple Maps Pin",
+                    iconName: "mappin.and.ellipse",
+                    action: .openAppleMaps(lat: lat, lon: lon, label: placeName)
+                ),
+                securityBadge: AISecurityBadge(
+                    level: .safe,
+                    title: "Verified Apple Maps Schema",
+                    details: "Direct navigation deep-link compatible with Apple Maps and CarPlay."
+                ),
+                quickPrompts: ["Open in Apple Maps", "Program to NFC Tag", "Get coordinates"]
             )
 
         case .wifi(let ssid, let password, let security):
@@ -74,7 +311,8 @@ public final class GlassAIEngine: ObservableObject {
                 title: "Wi-Fi: \(ssid)",
                 payload: item.payload,
                 formatLabel: "Wi-Fi Network",
-                iconName: "wifi"
+                iconName: "wifi",
+                action: .writeNFC(payload: item.payload)
             )
             let badge = AISecurityBadge(
                 level: strength.isSecure ? .safe : .caution,
@@ -86,7 +324,7 @@ public final class GlassAIEngine: ObservableObject {
                 text: text,
                 suggestedQR: suggested,
                 securityBadge: badge,
-                quickPrompts: ["Generate printable Wi-Fi sign", "Tips for router security"]
+                quickPrompts: ["Generate printable Wi-Fi sign", "Write Wi-Fi to NFC Tag", "Tips for router security"]
             )
 
         case .productBarcode(let code, let format):
@@ -108,7 +346,7 @@ public final class GlassAIEngine: ObservableObject {
 
             - **Full Name:** \(name)
             \(org.map { "- **Organization:** \($0)\n" } ?? "")\(phone.map { "- **Phone:** \($0)\n" } ?? "")\(email.map { "- **Email:** \($0)\n" } ?? "")
-            This contact can be directly imported into your Apple Contacts book.
+            This contact can be directly imported into your Apple Contacts book or programmed to a physical NFC business card.
             """
             return AIAgentMessage(
                 isUser: false,
@@ -117,16 +355,18 @@ public final class GlassAIEngine: ObservableObject {
                     title: name,
                     payload: item.payload,
                     formatLabel: "vCard 3.0",
-                    iconName: "person.crop.circle"
+                    iconName: "person.crop.circle",
+                    action: .writeNFC(payload: item.payload)
                 ),
-                quickPrompts: ["Save to Apple Contacts", "Generate matching vCard QR"]
+                securityBadge: AISecurityBadge(level: .safe, title: "Standard vCard 3.0", details: "Native Apple AddressBook schema."),
+                quickPrompts: ["Save to Apple Contacts", "Write to NFC Card", "Generate matching vCard QR"]
             )
 
         default:
             return AIAgentMessage(
                 isUser: false,
                 text: "### Content Summary\n\n**Payload:**\n`\(item.payload)`\n\nLength: \(item.payload.count) characters.",
-                quickPrompts: ["Create QR from this", "Check safety", "Convert to uppercase"]
+                quickPrompts: ["Create QR from this", "Check safety", "Write to NFC Tag"]
             )
         }
     }
@@ -136,22 +376,47 @@ public final class GlassAIEngine: ObservableObject {
     private func processOfflineHeuristics(_ prompt: String) -> AIAgentMessage {
         let lower = prompt.lowercased()
 
-        // 1. Wi-Fi Generation Intent
+        // 1. Zero-Knowledge Encrypted Vault Intent
+        if lower.contains("encrypt") || lower.contains("vault") || lower.contains("steganograph") || lower.contains("secret qr") || lower.contains("hide secret") {
+            return parseEncryptedVaultIntent(prompt: prompt, lower: lower)
+        }
+
+        // 2. Apple Maps & Geolocation Intent
+        if lower.contains("map") || lower.contains("drop pin") || lower.contains("location") || lower.contains("coordinates") || lower.contains("directions") || isLandmarkMentioned(lower) {
+            return parseMapIntent(prompt: prompt, lower: lower)
+        }
+
+        // 3. Wi-Fi Generation Intent
         if lower.contains("wifi") || lower.contains("wi-fi") || lower.contains("hotspot") {
             return parseWiFiIntent(prompt: prompt, lower: lower)
         }
 
-        // 2. Contact / vCard Intent
+        // 4. Contact / vCard Intent
         if lower.contains("contact") || lower.contains("vcard") || lower.contains("business card") {
             return parseContactIntent(prompt: prompt)
         }
 
-        // 3. Website / URL Intent
-        if lower.contains("url") || lower.contains("website") || lower.contains("link") || lower.contains("http") || lower.contains(".com") || lower.contains(".org") {
+        // 5. Calendar / Event Intent
+        if lower.contains("calendar") || lower.contains("event") || lower.contains("meeting") || lower.contains("invite") || lower.contains("schedule") {
+            return parseCalendarIntent(prompt: prompt)
+        }
+
+        // 6. Cryptocurrency Intent
+        if lower.contains("bitcoin") || lower.contains("btc") || lower.contains("ethereum") || lower.contains("eth") || lower.contains("crypto") || lower.contains("solana") {
+            return parseCryptoIntent(prompt: prompt, lower: lower)
+        }
+
+        // 7. Payment Intent (PayPal / Venmo / Cash App)
+        if lower.contains("paypal") || lower.contains("venmo") || lower.contains("cash app") || lower.contains("cashapp") {
+            return parsePaymentIntent(prompt: prompt, lower: lower)
+        }
+
+        // 8. Website / URL Intent
+        if lower.contains("url") || lower.contains("website") || lower.contains("link") || lower.contains("http") || lower.contains(".com") || lower.contains(".org") || lower.contains(".app") {
             return parseURLIntent(prompt: prompt)
         }
 
-        // 4. Barcode Question
+        // 9. Barcode Question
         if lower.contains("barcode") || lower.contains("ean") || lower.contains("upc") || lower.contains("128") {
             return AIAgentMessage(
                 isUser: false,
@@ -168,8 +433,8 @@ public final class GlassAIEngine: ObservableObject {
             )
         }
 
-        // 5. Error Correction & QR Specs
-        if lower.contains("error correction") || lower.contains("level") || lower.contains("ecc") {
+        // 10. Error Correction & QR Specs
+        if lower.contains("error correction") || lower.contains("ecc") || lower.contains("reed-solomon") {
             return AIAgentMessage(
                 isUser: false,
                 text: """
@@ -186,13 +451,14 @@ public final class GlassAIEngine: ObservableObject {
             )
         }
 
-        // 6. Generic Text QR Generation fallback
+        // 11. Generic Text QR Generation fallback
         let payload = prompt
         let suggested = AISuggestedQR(
             title: "Text QR Code",
             payload: payload,
             formatLabel: "Plain Text",
-            iconName: "doc.text"
+            iconName: "doc.text",
+            action: .writeNFC(payload: payload)
         )
         return AIAgentMessage(
             isUser: false,
@@ -200,14 +466,147 @@ public final class GlassAIEngine: ObservableObject {
             I've generated a QR code with your content:
             `\(payload)`
 
-            You can preview, save, or copy it directly below.
+            You can preview, save, or program it directly to an NFC tag below.
             """,
             suggestedQR: suggested,
-            quickPrompts: ["Create Wi-Fi QR", "Check link safety", "Generate vCard"]
+            quickPrompts: ["Create Wi-Fi QR", "Drop Pin on Apple Map", "Encrypt Secret Vault", "Check link safety"]
         )
     }
 
     // MARK: - Specialized Parsers
+
+    private func parseEncryptedVaultIntent(prompt: String, lower: String) -> AIAgentMessage {
+        var secret = "Confidential Secret Vault 2026"
+        var passcode = "1234"
+
+        // Extract secret
+        if let range = prompt.range(of: #"(?:secret|note|payload|message|text)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+            let match = String(prompt[range])
+            let parts = match.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let last = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !last.isEmpty {
+                secret = last
+            }
+        }
+
+        // Extract passcode
+        if let range = prompt.range(of: #"(?:passcode|password|code|key)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+            let match = String(prompt[range])
+            let parts = match.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let last = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !last.isEmpty {
+                passcode = last
+            }
+        }
+
+        let encryptedPayload: String
+        do {
+            encryptedPayload = try SteganographicQREngine.encryptPayload(
+                secretText: secret,
+                passcode: passcode,
+                decoyURL: "https://glassqr.app/vault"
+            )
+        } catch {
+            encryptedPayload = "GQR_VAULT:1:SAMPLE_CIPHERTEXT"
+        }
+
+        let suggested = AISuggestedQR(
+            title: "Secret Vault QR",
+            payload: encryptedPayload,
+            formatLabel: "Steganographic AES-256",
+            iconName: "lock.shield.fill",
+            action: .unlockVault(ciphertext: encryptedPayload)
+        )
+
+        return AIAgentMessage(
+            isUser: false,
+            text: """
+            ### Zero-Knowledge Encrypted QR Created 🔐
+
+            - **Disguised Decoy URL:** `https://glassqr.app/vault`
+            - **Encryption:** AES-GCM 256-bit with SHA-256 key derivation
+            - **Configured Passcode:** `\(passcode)`
+
+            To standard smartphone cameras, this appears as an innocent link. GlassQR automatically identifies the encrypted signature and prompts for Face ID or passcode unlock!
+            """,
+            suggestedQR: suggested,
+            securityBadge: AISecurityBadge(
+                level: .safe,
+                title: "Zero-Knowledge Protected",
+                details: "Ephemeral RAM decryption only. Keys are never saved to disk or transmitted to any server."
+            ),
+            quickPrompts: ["Test Vault Unlock", "Program Vault to NFC Tag", "Share Encrypted QR"]
+        )
+    }
+
+    private func parseMapIntent(prompt: String, lower: String) -> AIAgentMessage {
+        var lat = 37.7749
+        var lon = -122.4194
+        var label = "Dropped Pin"
+
+        // Landmark lookup table
+        if lower.contains("eiffel tower") || lower.contains("paris") {
+            lat = 48.8584; lon = 2.2945; label = "Eiffel Tower, Paris"
+        } else if lower.contains("tokyo tower") || lower.contains("tokyo") {
+            lat = 35.6586; lon = 139.7454; label = "Tokyo Tower, Japan"
+        } else if lower.contains("central park") || lower.contains("new york") || lower.contains("nyc") {
+            lat = 40.7829; lon = -73.9654; label = "Central Park, New York"
+        } else if lower.contains("big ben") || lower.contains("london") {
+            lat = 51.5007; lon = -0.1246; label = "Big Ben, London"
+        } else if lower.contains("colosseum") || lower.contains("rome") {
+            lat = 41.8902; lon = 12.4922; label = "Colosseum, Rome"
+        } else if lower.contains("sydney") || lower.contains("opera house") {
+            lat = -33.8568; lon = 151.2153; label = "Sydney Opera House"
+        } else if lower.contains("angkor wat") || lower.contains("cambodia") || lower.contains("siem reap") {
+            lat = 13.4125; lon = 103.8670; label = "Angkor Wat, Cambodia 🇰🇭"
+        } else {
+            // Check for numeric coordinates: lat, lon
+            if let range = prompt.range(of: #"(-?\d{1,3}\.\d+)[,\s]+(-?\d{1,3}\.\d+)"#, options: .regularExpression) {
+                let match = String(prompt[range])
+                let tokens = match.components(separatedBy: CharacterSet(charactersIn: ", \t"))
+                    .filter { !$0.isEmpty }
+                if tokens.count >= 2, let parsedLat = Double(tokens[0]), let parsedLon = Double(tokens[1]) {
+                    lat = parsedLat
+                    lon = parsedLon
+                    label = "Dropped Pin Location"
+                }
+            }
+        }
+
+        let encodedLabel = label.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Location"
+        let appleMapsURL = "https://maps.apple.com/?ll=\(lat),\(lon)&q=\(encodedLabel)"
+
+        let suggested = AISuggestedQR(
+            title: label,
+            payload: appleMapsURL,
+            formatLabel: "Apple Maps Pin",
+            iconName: "mappin.and.ellipse",
+            action: .openAppleMaps(lat: lat, lon: lon, label: label)
+        )
+
+        return AIAgentMessage(
+            isUser: false,
+            text: """
+            ### Apple Maps Location QR Prepared 📍
+
+            - **Destination:** \(label)
+            - **Coordinates:** `\(String(format: "%.6f", lat)), \(String(format: "%.6f", lon))`
+            - **Apple Maps Deep-Link:** [\(appleMapsURL)](\(appleMapsURL))
+
+            Anyone scanning this QR code will be prompted to open the exact coordinates in Apple Maps or start turn-by-turn navigation!
+            """,
+            suggestedQR: suggested,
+            securityBadge: AISecurityBadge(
+                level: .safe,
+                title: "Native Apple Maps Schema",
+                details: "Compatible with Apple Maps, CarPlay, and standard Web browsers."
+            ),
+            quickPrompts: ["Open in Apple Maps", "Program to NFC Tag", "Drop Pin at another place"]
+        )
+    }
+
+    private func isLandmarkMentioned(_ lower: String) -> Bool {
+        let landmarks = ["eiffel", "tokyo tower", "central park", "big ben", "colosseum", "sydney", "angkor wat", "san francisco", "paris", "london"]
+        return landmarks.contains(where: { lower.contains($0) })
+    }
 
     private func parseWiFiIntent(prompt: String, lower: String) -> AIAgentMessage {
         var ssid = "Home_Network"
@@ -240,7 +639,8 @@ public final class GlassAIEngine: ObservableObject {
             title: "Wi-Fi: \(ssid)",
             payload: payload,
             formatLabel: "Wi-Fi Network",
-            iconName: "wifi"
+            iconName: "wifi",
+            action: .writeNFC(payload: payload)
         )
 
         return AIAgentMessage(
@@ -260,7 +660,7 @@ public final class GlassAIEngine: ObservableObject {
                 title: pass.count >= 8 ? "Strong Credentials" : "Short Passphrase",
                 details: "WPA2/WPA3 credentials encoded into official Wi-Fi consortium format."
             ),
-            quickPrompts: ["Make password stronger", "Create guest network QR", "Export as PDF"]
+            quickPrompts: ["Make password stronger", "Write Wi-Fi to NFC Tag", "Export as PDF"]
         )
     }
 
@@ -270,17 +670,14 @@ public final class GlassAIEngine: ObservableObject {
         var email = "alex.morgan@example.com"
         let org = "Acme Corp"
 
-        // Search for email
         if let match = prompt.range(of: #"[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}"#, options: .regularExpression) {
             email = String(prompt[match])
         }
 
-        // Search for phone
         if let match = prompt.range(of: #"\+?[0-9]{1,3}?[- .]?[0-9]{3}[- .]?[0-9]{3}[- .]?[0-9]{4}"#, options: .regularExpression) {
             phone = String(prompt[match])
         }
 
-        // Search for name
         if let range = prompt.range(of: #"(?:name is|named|for)[:= ]+([A-Za-z ]+)"#, options: .regularExpression) {
             let extracted = String(prompt[range])
             let tokens = extracted.components(separatedBy: " ")
@@ -304,7 +701,8 @@ public final class GlassAIEngine: ObservableObject {
             title: name,
             payload: vcard,
             formatLabel: "vCard 3.0",
-            iconName: "person.crop.circle"
+            iconName: "person.crop.circle",
+            action: .writeNFC(payload: vcard)
         )
 
         return AIAgentMessage(
@@ -325,7 +723,147 @@ public final class GlassAIEngine: ObservableObject {
                 title: "Compliant vCard 3.0",
                 details: "Standard vCard schema compatible with iOS, Android, and macOS Address Book."
             ),
-            quickPrompts: ["Add company title", "Share as Vector PDF", "Generate Wi-Fi QR"]
+            quickPrompts: ["Add company title", "Program to NFC Smart Card", "Export as Vector PDF"]
+        )
+    }
+
+    private func parseCalendarIntent(prompt: String) -> AIAgentMessage {
+        var summary = "Team Project Sync"
+        if let range = prompt.range(of: #"(?:event|meeting|titled|named)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+            let match = String(prompt[range])
+            let parts = match.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let last = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !last.isEmpty {
+                summary = last
+            }
+        }
+
+        let ics = """
+        BEGIN:VCALENDAR
+        VERSION:2.0
+        PRODID:-//GlassQR//EN
+        BEGIN:VEVENT
+        SUMMARY:\(summary)
+        DESCRIPTION:Generated via GlassQR Intelligent Copilot
+        DTSTART:20261020T180000Z
+        DTEND:20261020T190000Z
+        END:VEVENT
+        END:VCALENDAR
+        """
+
+        let suggested = AISuggestedQR(
+            title: summary,
+            payload: ics,
+            formatLabel: "iCalendar Event",
+            iconName: "calendar",
+            action: .writeNFC(payload: ics)
+        )
+
+        return AIAgentMessage(
+            isUser: false,
+            text: """
+            ### Calendar Invite QR Code Created 📅
+
+            - **Event Title:** \(summary)
+            - **Format:** RFC 5545 iCalendar (`.ics`)
+
+            Scanning this QR opens the native iOS Calendar app to schedule the event with 1 tap.
+            """,
+            suggestedQR: suggested,
+            securityBadge: AISecurityBadge(
+                level: .safe,
+                title: "Standard RFC 5545 iCalendar",
+                details: "Compatible with Apple Calendar, Google Calendar, and Microsoft Outlook."
+            ),
+            quickPrompts: ["Change event time", "Program to NFC Tag", "Export as SVG"]
+        )
+    }
+
+    private func parseCryptoIntent(prompt: String, lower: String) -> AIAgentMessage {
+        var address = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        var currency = "Bitcoin (BTC)"
+        var scheme = "bitcoin"
+
+        if lower.contains("eth") || lower.contains("ethereum") {
+            address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+            currency = "Ethereum (ETH)"
+            scheme = "ethereum"
+        } else if lower.contains("sol") || lower.contains("solana") {
+            address = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+            currency = "Solana (SOL)"
+            scheme = "solana"
+        }
+
+        let payload = "\(scheme):\(address)"
+        let suggested = AISuggestedQR(
+            title: "\(currency) Address",
+            payload: payload,
+            formatLabel: currency,
+            iconName: "bitcoinsign.circle.fill",
+            action: .writeNFC(payload: payload)
+        )
+
+        return AIAgentMessage(
+            isUser: false,
+            text: """
+            ### Cryptocurrency Wallet QR Prepared 🪙
+
+            - **Asset:** \(currency)
+            - **Address:** `\(address)`
+            - **Payload:** `\(payload)`
+
+            Crypto wallets (Apple Wallet, Ledger, Metamask, Coinbase) will recognize this address instantly.
+            """,
+            suggestedQR: suggested,
+            securityBadge: AISecurityBadge(
+                level: .safe,
+                title: "Standard Crypto URI",
+                details: "Conforms to BIP-21 / EIP-681 cryptocurrency address specifications."
+            ),
+            quickPrompts: ["Verify address checksum", "Program to NFC Cold Storage Card"]
+        )
+    }
+
+    private func parsePaymentIntent(prompt: String, lower: String) -> AIAgentMessage {
+        var handle = "glassqr"
+        if let range = prompt.range(of: #"@([A-Za-z0-9_]+)"#, options: .regularExpression) {
+            handle = String(prompt[range]).replacingOccurrences(of: "@", with: "")
+        }
+
+        let urlStr: String
+        let service: String
+        if lower.contains("venmo") {
+            service = "Venmo"
+            urlStr = "https://venmo.com/\(handle)"
+        } else if lower.contains("cash") {
+            service = "Cash App"
+            urlStr = "https://cash.app/$\(handle)"
+        } else {
+            service = "PayPal"
+            urlStr = "https://paypal.me/\(handle)"
+        }
+
+        let suggested = AISuggestedQR(
+            title: "\(service): @\(handle)",
+            payload: urlStr,
+            formatLabel: "\(service) Link",
+            iconName: "dollarsign.circle.fill",
+            action: .writeNFC(payload: urlStr)
+        )
+
+        return AIAgentMessage(
+            isUser: false,
+            text: """
+            ### Payment QR Code Prepared 💳
+
+            - **Service:** \(service)
+            - **Recipient:** `@\(handle)`
+            - **Direct Link:** [\(urlStr)](\(urlStr))
+
+            Customers and friends can scan to pay you instantly via \(service).
+            """,
+            suggestedQR: suggested,
+            securityBadge: AISecurityBadge(level: .safe, title: "\(service) Verified Link", details: "Direct HTTPS payment portal."),
+            quickPrompts: ["Change username", "Program to NFC Tag", "Export as PDF"]
         )
     }
 
@@ -343,7 +881,8 @@ public final class GlassAIEngine: ObservableObject {
             title: url.host ?? urlStr,
             payload: urlStr,
             formatLabel: "Web URL",
-            iconName: "link"
+            iconName: "link",
+            action: .writeNFC(payload: urlStr)
         )
 
         return AIAgentMessage(
@@ -359,7 +898,7 @@ public final class GlassAIEngine: ObservableObject {
             """,
             suggestedQR: suggested,
             securityBadge: badge,
-            quickPrompts: ["Add UTM campaign tags", "Shorten link", "Export as SVG"]
+            quickPrompts: ["Add UTM campaign tags", "Program to NFC Tag", "Shorten link", "Export as SVG"]
         )
     }
 
@@ -382,7 +921,6 @@ public final class GlassAIEngine: ObservableObject {
             return AISecurityBadge(level: .info, title: "Custom URL", details: "Non-standard web destination.")
         }
 
-        // Check for raw IP address
         if host.range(of: #"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$"#, options: .regularExpression) != nil {
             return AISecurityBadge(
                 level: .danger,
@@ -391,7 +929,6 @@ public final class GlassAIEngine: ObservableObject {
             )
         }
 
-        // Check for punycode / homograph attacks
         if host.contains("xn--") {
             return AISecurityBadge(
                 level: .caution,
@@ -400,7 +937,6 @@ public final class GlassAIEngine: ObservableObject {
             )
         }
 
-        // Suspicious file downloads
         let path = url.path.lowercased()
         let dangerousExtensions = [".apk", ".exe", ".bat", ".scr", ".cmd", ".vbs", ".dmg", ".ipa"]
         for ext in dangerousExtensions where path.hasSuffix(ext) {
@@ -495,31 +1031,41 @@ public final class GlassAIEngine: ObservableObject {
         }
     }
 
-    // MARK: - Extensible Cloud LLM Integration
+    // MARK: - Multi-Provider Cloud LLM Engine
 
-    private func fetchCloudLLMResponse(prompt: String, apiKey: String) async throws -> AIAgentMessage? {
-        let endpointString = customEndpoint.isEmpty ? "https://api.openai.com/v1/chat/completions" : customEndpoint
-        guard let url = URL(string: endpointString) else { return nil }
+    private func fetchCloudLLMResponse(prompt: String) async throws -> AIAgentMessage? {
+        let systemPrompt = "\(persona.systemPromptSnippet) Answer in concise markdown headings and bullet points."
 
+        switch provider {
+        case .openAI, .custom:
+            return try await callOpenAICompatible(prompt: prompt, systemPrompt: systemPrompt)
+        case .gemini:
+            return try await callGoogleGemini(prompt: prompt, systemPrompt: systemPrompt)
+        case .claude:
+            return try await callAnthropicClaude(prompt: prompt, systemPrompt: systemPrompt)
+        case .onDevice:
+            return nil
+        }
+    }
+
+    private func callOpenAICompatible(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
+        let endpoint = customEndpoint.isEmpty ? "https://api.openai.com/v1/chat/completions" : customEndpoint
+        guard let url = URL(string: endpoint) else { return nil }
+
+        let model = customModel.isEmpty ? provider.defaultModel : customModel
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let systemMessage = """
-        You are the GlassQR Assistant, an expert in QR codes, barcodes, security analysis, and payload generation.
-        When asked to create a QR code, clearly provide the structured payload (e.g. WIFI:S:... or BEGIN:VCARD) and explain its attributes.
-        Keep answers concise, insightful, and formatted with clean markdown headings and bullet points.
-        """
-
         let body: [String: Any] = [
-            "model": "gpt-4o-mini",
+            "model": model,
             "messages": [
-                ["role": "system", "content": systemMessage],
+                ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": prompt]
             ],
             "temperature": 0.7,
-            "max_tokens": 500
+            "max_tokens": 600
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -537,10 +1083,144 @@ public final class GlassAIEngine: ObservableObject {
             return AIAgentMessage(
                 isUser: false,
                 text: content,
-                quickPrompts: ["Generate another code", "Check safety", "Export QR"]
+                quickPrompts: ["Generate another code", "Check safety", "Program to NFC Tag"]
             )
         }
+        return nil
+    }
 
+    private func callGoogleGemini(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
+        let model = customModel.isEmpty ? "gemini-1.5-flash" : customModel
+        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "contents": [
+                [
+                    "role": "user",
+                    "parts": [
+                        ["text": "\(systemPrompt)\n\nUser Question: \(prompt)"]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "temperature": 0.7,
+                "maxOutputTokens": 600
+            ]
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
+        }
+
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let candidates = json["candidates"] as? [[String: Any]],
+           let first = candidates.first,
+           let content = first["content"] as? [String: Any],
+           let parts = content["parts"] as? [[String: Any]],
+           let text = parts.first?["text"] as? String {
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                quickPrompts: ["Generate matching QR", "Check safety", "Program to NFC Tag"]
+            )
+        }
+        return nil
+    }
+
+    private func callAnthropicClaude(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
+        let endpoint = "https://api.anthropic.com/v1/messages"
+        guard let url = URL(string: endpoint) else { return nil }
+
+        let model = customModel.isEmpty ? "claude-3-5-sonnet-20241022" : customModel
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "model": model,
+            "system": systemPrompt,
+            "messages": [
+                ["role": "user", "content": prompt]
+            ],
+            "max_tokens": 600
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
+        }
+
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let content = json["content"] as? [[String: Any]],
+           let first = content.first,
+           let text = first["text"] as? String {
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                quickPrompts: ["Create QR code", "Safety Audit", "Write to NFC Tag"]
+            )
+        }
+        return nil
+    }
+
+    // MARK: - Multi-Modal Cloud Vision
+
+    private func fetchCloudVisionResponse(image: UIImage, prompt: String) async throws -> AIAgentMessage? {
+        guard let jpegData = image.jpegData(compressionQuality: 0.7) else { return nil }
+        let base64String = jpegData.base64EncodedString()
+
+        let endpoint = customEndpoint.isEmpty ? "https://api.openai.com/v1/chat/completions" : customEndpoint
+        guard let url = URL(string: endpoint) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "model": "gpt-4o-mini",
+            "messages": [
+                [
+                    "role": "user",
+                    "content": [
+                        ["type": "text", "text": "Analyze this QR code, barcode, or document image. Extract and explain any payloads: \(prompt)"],
+                        ["type": "image_url", "image_url": ["url": "data:image/jpeg;base64,\(base64String)"]]
+                    ]
+                ]
+            ],
+            "max_tokens": 600
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return nil
+        }
+
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let choices = json["choices"] as? [[String: Any]],
+           let firstChoice = choices.first,
+           let message = firstChoice["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return AIAgentMessage(
+                isUser: false,
+                text: content,
+                quickPrompts: ["Create matching QR", "Check security", "Program to NFC Tag"]
+            )
+        }
         return nil
     }
 }

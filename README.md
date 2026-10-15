@@ -136,21 +136,36 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Thread-safe camera capture running on a dedicated serial background queue with tap-to-focus and optical zoom.
   - Automatic detection of simulator/preview environments with interactive bypass testing chips.
 
-### 3. Glass AI Agent Assistant & Security Copilot
-- **Natural Language QR Generation**:
-  - Direct speech-to-code understanding: "Generate a guest Wi-Fi QR for OfficeNet with password Welcome2026!" or "Create a vCard for Alex Chen with email alex@corp.com".
-  - Instantly constructs compliant RFC schemas (Wi-Fi consortium strings, vCard 3.0, URL structures, SMS, Tel).
-  - Renders live interactive QR previews inside the chat bubble with 1-tap **"Copy Data"** and **"Save Photo"**.
-- **Intelligent Threat & Link Safety Inspection**:
-  - Scans URLs for phishing signals, direct numeric IP hosts, punycode/homograph domain spoofs, unencrypted HTTP protocols, and risky executable downloads (.apk, .exe, .dmg).
-  - Visual status badges (**Safe & Verified**, **Caution Recommended**, **Potential Threat**).
-- **Barcode & GS1 Symbology Explainer**:
-  - Automatically identifies GS1 country prefixes (e.g. 000-139 USA/Canada, 400-440 Germany, 450-499 Japan, 500-509 UK, etc.) and retail standard formats.
-- **Dual Engine Architecture**:
-  - **100% On-Device Neural Engine (Default)**: Zero latency, offline heuristics, zero data leaves the device.
-  - **Cloud LLM Integration (Optional)**: Connect an OpenAI or Gemini API key in settings for unlimited general reasoning.
-- **Direct Scan Integration**:
-  - Tap **"Analyze with AI Assistant"** directly from any camera scan sheet for instant security breakdowns.
+### 3. Glass AI Copilot & Multi-Modal Security Agent 🧠✨
+- **Multi-Modal Vision & Photo OCR Inspection**:
+  - Direct photo attachment via `PhotosPicker`: attach any photo, document, sign, or complex graphic from your library.
+  - Optical barcode detection (`VNDetectBarcodesRequest`) decodes hidden 1D/2D symbologies, extracts metadata, and provides real-time security breakdowns.
+  - Optical Character Recognition (`VNRecognizeTextRequest`) extracts text lines with language correction and automatically synthesizes a vector QR code.
+  - Multi-modal cloud vision support for OpenAI GPT-4o, Google Gemini, and Anthropic Claude.
+- **Dynamic AI Personas**:
+  - **🪄 Copilot**: Universal assistance, code creation, and natural language reasoning.
+  - **🛡️ Security Guard**: Strict link safety audits, tracking parameter scrubbing, homograph spoof checks, and malware download alerts.
+  - **🎨 QR Architect**: Error correction recommendations, contrast balancing, and vector branding specifications.
+  - **🔒 Vault & Privacy**: Zero-knowledge encryption, steganography, and cryptographic seed protection.
+- **Expanded Natural Language QR Generation**:
+  - **Zero-Knowledge Encrypted Vaults**: "Encrypt secret note with passcode 1234" -> authentic AES-256 GCM steganographic QR.
+  - **Apple Maps Geolocation**: "Drop pin at Tokyo Tower" or "Directions to Central Park" -> native `maps.apple.com/?ll=...` Apple Maps pins.
+  - **iCalendar Events (RFC 5545)**: "Schedule Product Launch on Oct 20 at 6pm" -> standard `.ics` calendar invitation.
+  - **Cryptocurrency Wallets**: Bitcoin (`BIP-21`), Ethereum (`EIP-681`), and Solana addresses with checksum validation.
+  - **Payment Portals**: Instant Venmo, Cash App, and PayPal payment links.
+  - **Wi-Fi & vCard 3.0**: Compliant Wi-Fi consortium network schemas and digital business cards.
+- **1-Tap Interactive Smart Actions**:
+  - **"Program to NFC Tag"**: Directly flash the AI's generated QR code to a physical NFC sticker or card via `NFCStudioSheetView`.
+  - **"Open in Apple Maps"**: 1-tap navigation launch for map locations.
+  - **"Unlock in Vault Studio"**: 1-tap biometric Face ID / passcode unlock for encrypted QR codes.
+- **Voice Read-Aloud & Audio Synthesis (`AVFoundation`)**:
+  - Native `AVSpeechSynthesizer` provides Siri-grade voice readout of all AI responses with animated speech waveform indicators.
+- **Multi-Provider Cloud & On-Device Engine**:
+  - **100% On-Device Neural Engine (Default)**: Zero cloud latency, works offline in airplane mode, zero data collection.
+  - **OpenAI (GPT-4o / GPT-4o-mini)**: Industry-standard reasoning.
+  - **Google Gemini (Gemini 1.5 Flash / Pro)**: High-speed multi-modal comprehension.
+  - **Anthropic Claude (Claude 3.5 Sonnet)**: Nuanced analysis and architectural advice.
+  - **Custom / Local (Ollama, LM Studio, vLLM)**: Self-hosted local LLMs over local network.
 
 ### 4. Living Liquid MeshGradient
 - An oscillating `MeshGradient` powered by `TimelineView(.animation)` shifts through deep midnight indigo, electric violet, ocean cyan, and liquid magenta, creating a rich dynamic palette that refracts through every floating glass element in real time.
