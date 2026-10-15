@@ -160,11 +160,15 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - **"Unlock in Vault Studio"**: 1-tap biometric Face ID / passcode unlock for encrypted QR codes.
 - **Voice Read-Aloud & Audio Synthesis (`AVFoundation`)**:
   - Native `AVSpeechSynthesizer` provides Siri-grade voice readout of all AI responses with animated speech waveform indicators.
-- **Multi-Provider Cloud & On-Device Engine**:
+- **Multi-Provider Cloud & On-Device Engine with Auto-Fetched Models**:
   - **100% On-Device Neural Engine (Default)**: Zero cloud latency, works offline in airplane mode, zero data collection.
-  - **OpenAI (GPT-4o / GPT-4o-mini)**: Industry-standard reasoning.
-  - **Google Gemini (Gemini 1.5 Flash / Pro)**: High-speed multi-modal comprehension.
-  - **Anthropic Claude (Claude 3.5 Sonnet)**: Nuanced analysis and architectural advice.
+  - **Auto-Fetch Compatible Models via API Key**:
+    - Automatically contacts OpenAI (`/v1/models`), Google Gemini (`/models?key=...`), Anthropic Claude (`/v1/models`), or Local Ollama (`/v1/models` and `/api/tags`) upon entering or pasting your API key.
+    - Filters and displays an interactive Liquid Glass **Model Dropdown Menu** with available models, active status checks, and model counts.
+    - 1-tap model switching with support for manual custom model ID overrides.
+  - **OpenAI (GPT-4o, GPT-4o-mini, o3-mini, o1-mini)**: Industry-standard reasoning.
+  - **Google Gemini (Gemini 1.5 Flash / Pro, Gemini 2.0 Flash)**: High-speed multi-modal comprehension.
+  - **Anthropic Claude (Claude 3.5 Sonnet, Claude 3.5 Haiku)**: Nuanced analysis and architectural advice.
   - **Custom / Local (Ollama, LM Studio, vLLM)**: Self-hosted local LLMs over local network.
 
 ### 4. Living Liquid MeshGradient

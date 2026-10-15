@@ -24,6 +24,19 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
     @AppStorage("glass_ai_endpoint") public var customEndpoint: String = ""
     @AppStorage("glass_ai_model") public var customModel: String = ""
 
+    // MARK: - Auto-Fetched Models for Active API Key
+    @Published public var availableModels: [String] = []
+    @Published public var isFetchingModels: Bool = false
+    @Published public var fetchModelsError: String? = nil
+
+    public var activeModelName: String {
+        let clean = customModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !clean.isEmpty {
+            return clean
+        }
+        return availableModels.first ?? provider.defaultModel
+    }
+
     // MARK: - Voice / Speech Synthesis
     @Published public var isSpeaking: Bool = false
     private let speechSynthesizer = AVSpeechSynthesizer()
@@ -1052,7 +1065,7 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
         let endpoint = customEndpoint.isEmpty ? "https://api.openai.com/v1/chat/completions" : customEndpoint
         guard let url = URL(string: endpoint) else { return nil }
 
-        let model = customModel.isEmpty ? provider.defaultModel : customModel
+        let model = activeModelName
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -1090,7 +1103,7 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
     }
 
     private func callGoogleGemini(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
-        let model = customModel.isEmpty ? "gemini-1.5-flash" : customModel
+        let model = activeModelName
         let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
         guard let url = URL(string: endpoint) else { return nil }
 
@@ -1139,7 +1152,7 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
         let endpoint = "https://api.anthropic.com/v1/messages"
         guard let url = URL(string: endpoint) else { return nil }
 
-        let model = customModel.isEmpty ? "claude-3-5-sonnet-20241022" : customModel
+        let model = activeModelName
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
@@ -1222,5 +1235,247 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
             )
         }
         return nil
+    }
+
+    // MARK: - Auto-Fetch Available Models for Active API Key
+
+    public func fetchAvailableModels(force: Bool = false) async {
+        let cleanKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if provider == .onDevice {
+            await MainActor.run {
+                self.availableModels = [
+                    "Glass-Neural-v2 (On-Device Apple Neural Engine)",
+                    "Glass-Heuristics-Offline"
+                ]
+                self.isFetchingModels = false
+                self.fetchModelsError = nil
+            }
+            return
+        }
+
+        guard !cleanKey.isEmpty else {
+            await MainActor.run {
+                self.availableModels = []
+                self.isFetchingModels = false
+                self.fetchModelsError = "Please enter an API Key to fetch models"
+            }
+            return
+        }
+
+        await MainActor.run {
+            self.isFetchingModels = true
+            self.fetchModelsError = nil
+        }
+
+        do {
+            let fetched: [String]
+            switch provider {
+            case .openAI:
+                fetched = try await fetchOpenAIModels(apiKey: cleanKey)
+            case .gemini:
+                fetched = try await fetchGeminiModels(apiKey: cleanKey)
+            case .claude:
+                fetched = try await fetchClaudeModels(apiKey: cleanKey)
+            case .custom:
+                fetched = try await fetchCustomEndpointModels(apiKey: cleanKey)
+            case .onDevice:
+                fetched = []
+            }
+
+            await MainActor.run {
+                self.isFetchingModels = false
+                if fetched.isEmpty {
+                    self.fetchModelsError = "No compatible chat models found for this key"
+                } else {
+                    self.availableModels = fetched
+                    self.fetchModelsError = nil
+                    // If customModel is currently empty or not in the fetched list, select top recommended model
+                    if self.customModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !fetched.contains(self.customModel) {
+                        self.customModel = fetched.first ?? self.provider.defaultModel
+                    }
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.isFetchingModels = false
+                self.fetchModelsError = error.localizedDescription
+            }
+        }
+    }
+
+    private func fetchOpenAIModels(apiKey: String) async throws -> [String] {
+        let endpoint = customEndpoint.isEmpty ? "https://api.openai.com/v1/models" : (customEndpoint.replacingOccurrences(of: "/chat/completions", with: "/models"))
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 10
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard http.statusCode == 200 else {
+            if http.statusCode == 401 { throw NSError(domain: "OpenAI", code: 401, userInfo: [NSLocalizedDescriptionKey: "Invalid OpenAI API Key (HTTP 401)"]) }
+            throw NSError(domain: "OpenAI", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(http.statusCode)"])
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataArray = json["data"] as? [[String: Any]] else {
+            throw URLError(.cannotParseResponse)
+        }
+
+        var models: [String] = []
+        for item in dataArray {
+            if let id = item["id"] as? String {
+                let lower = id.lowercased()
+                if lower.contains("dall-e") || lower.contains("whisper") || lower.contains("tts") ||
+                   lower.contains("embedding") || lower.contains("moderation") || lower.contains("babbage") ||
+                   lower.contains("davinci") || lower.contains("curie") || lower.contains("audio") || lower.contains("realtime") {
+                    continue
+                }
+                models.append(id)
+            }
+        }
+
+        let priorityOrder = [
+            "gpt-4o", "gpt-4o-mini", "o3-mini", "o1-mini", "o1-preview", "o1",
+            "gpt-4.5-preview", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"
+        ]
+
+        models.sort { a, b in
+            let aIdx = priorityOrder.firstIndex(where: { a.starts(with: $0) }) ?? 999
+            let bIdx = priorityOrder.firstIndex(where: { b.starts(with: $0) }) ?? 999
+            if aIdx != bIdx { return aIdx < bIdx }
+            return a < b
+        }
+
+        return models
+    }
+
+    private func fetchGeminiModels(apiKey: String) async throws -> [String] {
+        let endpoint = "https://generativelanguage.googleapis.com/v1beta/models?key=\(apiKey)"
+        guard let url = URL(string: endpoint) else { throw URLError(.badURL) }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard http.statusCode == 200 else {
+            if http.statusCode == 400 || http.statusCode == 403 {
+                throw NSError(domain: "Gemini", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: "Invalid Gemini API Key (HTTP \(http.statusCode))"])
+            }
+            throw NSError(domain: "Gemini", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(http.statusCode)"])
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let modelsArray = json["models"] as? [[String: Any]] else {
+            throw URLError(.cannotParseResponse)
+        }
+
+        var models: [String] = []
+        for item in modelsArray {
+            guard let name = item["name"] as? String else { continue }
+            let cleanName = name.replacingOccurrences(of: "models/", with: "")
+
+            if let methods = item["supportedGenerationMethods"] as? [String] {
+                if !methods.contains("generateContent") { continue }
+            }
+
+            models.append(cleanName)
+        }
+
+        let priorityOrder = [
+            "gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.0-pro"
+        ]
+
+        models.sort { a, b in
+            let aIdx = priorityOrder.firstIndex(where: { a.starts(with: $0) }) ?? 999
+            let bIdx = priorityOrder.firstIndex(where: { b.starts(with: $0) }) ?? 999
+            if aIdx != bIdx { return aIdx < bIdx }
+            return a < b
+        }
+
+        return models
+    }
+
+    private func fetchClaudeModels(apiKey: String) async throws -> [String] {
+        let fallbackModels = [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+            "claude-3-sonnet-20240229",
+            "claude-3-haiku-20240307"
+        ]
+
+        guard let url = URL(string: "https://api.anthropic.com/v1/models") else {
+            return fallbackModels
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.timeoutInterval = 8
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let dataArray = json["data"] as? [[String: Any]] {
+                let ids = dataArray.compactMap { $0["id"] as? String }
+                if !ids.isEmpty {
+                    return ids
+                }
+            }
+        } catch {}
+
+        return fallbackModels
+    }
+
+    private func fetchCustomEndpointModels(apiKey: String) async throws -> [String] {
+        var base = customEndpoint.isEmpty ? "http://localhost:11434" : customEndpoint
+        if base.contains("/chat/completions") {
+            base = base.replacingOccurrences(of: "/chat/completions", with: "")
+        }
+        if base.hasSuffix("/") {
+            base = String(base.dropLast())
+        }
+
+        let modelsURL = base.contains("/v1") ? "\(base)/models" : "\(base)/v1/models"
+        if let url = URL(string: modelsURL) {
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            if !apiKey.isEmpty {
+                request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            }
+            request.timeoutInterval = 5
+
+            if let (data, response) = try? await URLSession.shared.data(for: request),
+               let http = response as? HTTPURLResponse, http.statusCode == 200,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let dataArray = json["data"] as? [[String: Any]] {
+                let ids = dataArray.compactMap { $0["id"] as? String }
+                if !ids.isEmpty { return ids }
+            }
+        }
+
+        if let url = URL(string: "\(base)/api/tags") {
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.timeoutInterval = 5
+
+            if let (data, response) = try? await URLSession.shared.data(for: request),
+               let http = response as? HTTPURLResponse, http.statusCode == 200,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let modelsArray = json["models"] as? [[String: Any]] {
+                let names = modelsArray.compactMap { $0["name"] as? String }
+                if !names.isEmpty { return names }
+            }
+        }
+
+        return ["llama3:latest", "mistral:latest", "deepseek-r1:latest", "qwen2.5-coder:latest", "phi3:latest"]
     }
 }
