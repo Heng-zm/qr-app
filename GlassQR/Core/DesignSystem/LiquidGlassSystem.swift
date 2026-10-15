@@ -2,11 +2,21 @@
 //  LiquidGlassSystem.swift
 //  GlassQR
 //
-//  Native iOS 26 Liquid Glass Architecture & Interface Protocols
+//  Native iOS 26+ Liquid Glass adapters and interface helpers.
+//
+//  Prefer SwiftUI's native APIs in new code:
+//    .glassEffect(.regular, in: Capsule())
+//    .glassEffect(.clear, in: RoundedRectangle(cornerRadius: 20))
+//    .buttonStyle(.glass)
+//    .buttonStyle(.glassProminent)
 //
 
 import SwiftUI
 
+/// Compatibility configuration for code that wants to choose between the
+/// regular and clear native Liquid Glass materials.
+///
+/// The actual rendering is performed by SwiftUI's `Glass` and `View.glassEffect`.
 public struct GlassEffectStyle: Sendable, Equatable {
     public enum Variant: Sendable, Equatable {
         case regular
@@ -16,14 +26,20 @@ public struct GlassEffectStyle: Sendable, Equatable {
     public var variant: Variant
     public var isInteractive: Bool
 
+    public init(variant: Variant, isInteractive: Bool = false) {
+        self.variant = variant
+        self.isInteractive = isInteractive
+    }
+
     public static var regular: GlassEffectStyle {
-        GlassEffectStyle(variant: .regular, isInteractive: false)
+        GlassEffectStyle(variant: .regular)
     }
 
     public static var clear: GlassEffectStyle {
-        GlassEffectStyle(variant: .clear, isInteractive: false)
+        GlassEffectStyle(variant: .clear)
     }
 
+    /// Returns a copy configured to use the native interactive glass response.
     public func interactive(_ active: Bool = true) -> GlassEffectStyle {
         var copy = self
         copy.isInteractive = active
@@ -31,17 +47,23 @@ public struct GlassEffectStyle: Sendable, Equatable {
     }
 }
 
-public enum GlassEffectTransition: Sendable, Equatable {
-    case materialize
-    case matchedGeometry
-}
+/// Use the native SwiftUI transition type while keeping the GlassQR name.
+/// This is a typealias rather than a custom imitation, so `.materialize`,
+/// `.matchedGeometry`, and `.identity` have their genuine iOS 26 behavior.
+public typealias GlassEffectTransition = SwiftUI.GlassEffectTransition
 
-public struct GlassShapeToken: Sendable {
+/// Shape tokens retained for compatibility with existing GlassQR call sites.
+public struct GlassShapeToken: Sendable, Equatable {
     public enum ShapeKind: Sendable, Equatable {
         case capsule
         case rect(cornerRadius: CGFloat)
     }
+
     public var kind: ShapeKind
+
+    public init(kind: ShapeKind) {
+        self.kind = kind
+    }
 
     public static var capsule: GlassShapeToken {
         GlassShapeToken(kind: .capsule)
@@ -52,55 +74,99 @@ public struct GlassShapeToken: Sendable {
     }
 }
 
+private extension GlassEffectStyle {
+    var nativeGlass: SwiftUI.Glass {
+        let glass: SwiftUI.Glass
+        switch variant {
+        case .regular:
+            glass = .regular
+        case .clear:
+            glass = .clear
+        }
+        return glass.interactive(isInteractive)
+    }
+}
+
+private extension GlassShapeToken {
+    var nativeShape: AnyShape {
+        switch kind {
+        case .capsule:
+            AnyShape(Capsule())
+        case .rect(let cornerRadius):
+            AnyShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+    }
+}
+
+/// Thin adapter that delegates rendering to SwiftUI's native Liquid Glass API.
+private struct NativeLiquidGlassModifier: ViewModifier {
+    let style: GlassEffectStyle
+    let shape: GlassShapeToken
+
+    func body(content: Content) -> some View {
+        content.glassEffect(style.nativeGlass, in: shape.nativeShape)
+    }
+}
+
 public extension View {
-    /// Native iOS 26 `.glassEffect()` modifier
-    func glassEffect(
+    /// Adapter for callers using GlassQR's custom style and shape tokens.
+    ///
+    /// This intentionally has a distinct name from SwiftUI's `.glassEffect`
+    /// to avoid ambiguity with the genuine native API, whose parameters have
+    /// the same labels and defaults.
+    func liquidGlassEffect(
         _ style: GlassEffectStyle = .regular,
         in shape: GlassShapeToken = .capsule
     ) -> some View {
         modifier(NativeLiquidGlassModifier(style: style, shape: shape))
     }
 
-    /// Native iOS 26 geometry matching for liquid droplet morphing
-    func glassEffectID(_ id: AnyHashable, in namespace: Namespace.ID) -> some View {
-        self.matchedGeometryEffect(id: id, in: namespace)
+    /// Source-compatibility overload for existing calls that pass both custom
+    /// GlassQR tokens explicitly. New code should use SwiftUI's native API,
+    /// e.g. `.glassEffect(.regular, in: Capsule())`, or `liquidGlassEffect`.
+    @available(*, deprecated, message: "Use native .glassEffect(_:in:) with SwiftUI.Glass and a Shape, or use .liquidGlassEffect(_:in:) with GlassQR tokens.")
+    func glassEffect(
+        _ style: GlassEffectStyle,
+        in shape: GlassShapeToken
+    ) -> some View {
+        modifier(NativeLiquidGlassModifier(style: style, shape: shape))
     }
 
-    /// Native iOS 26 liquid appearance transition
-    @ViewBuilder
-    func glassEffectTransition(_ transition: GlassEffectTransition) -> some View {
-        switch transition {
-        case .materialize:
-            self.transition(
-                .asymmetric(
-                    insertion: .scale(scale: 0.94).combined(with: .opacity),
-                    removal: .scale(scale: 0.88).combined(with: .opacity)
-                )
-            )
-        case .matchedGeometry:
-            self.transition(.identity)
-        }
-    }
+    /// SwiftUI provides the native `.glassEffectID(_:in:)` and
+    /// `.glassEffectTransition(_:)` modifiers on iOS 26+. Use those directly
+    /// so SwiftUI can coordinate genuine glass morphing within a container.
 }
 
-/// Liquid Morphing Glass Effect Container
+/// Native Liquid Glass container with the original GlassQR horizontal layout.
+/// The enclosed items must themselves apply `.glassEffect` (or
+/// `.liquidGlassEffect`) to participate in glass blending and morphing.
 public struct GlassEffectContainer<Content: View>: View {
     public let spacing: CGFloat
     public let content: Content
 
-    public init(spacing: CGFloat = 20, @ViewBuilder content: () -> Content) {
+    public init(
+        spacing: CGFloat = 20,
+        @ViewBuilder content: () -> Content
+    ) {
         self.spacing = spacing
         self.content = content()
     }
 
     public var body: some View {
-        HStack(spacing: spacing) {
-            content
+        SwiftUI.GlassEffectContainer(spacing: spacing) {
+            HStack(spacing: spacing) {
+                content
+            }
         }
     }
 }
 
-/// Native Liquid Glass Button Styles
+/// Backward-compatible custom ButtonStyle adapter.
+///
+/// For new buttons, prefer the genuine system styles directly:
+/// `.buttonStyle(.glass)` or `.buttonStyle(.glassProminent)`. Those styles
+/// provide platform-managed glass button behavior and are not simulated here.
+@available(*, deprecated, message: "Prefer .buttonStyle(.glass) or .buttonStyle(.glassProminent) for the native iOS 26 button styles.")
 public struct GlassButtonStyle: ButtonStyle {
     public let isProminent: Bool
 
@@ -113,72 +179,17 @@ public struct GlassButtonStyle: ButtonStyle {
             .font(.system(.body, design: .rounded, weight: .semibold))
             .padding(.horizontal, 22)
             .padding(.vertical, 14)
-            .foregroundStyle(isProminent ? Color.black : Color.white)
-            .background {
-                if isProminent {
-                    Capsule()
-                        .fill(Color.white.opacity(configuration.isPressed ? 0.82 : 0.96))
-                        .shadow(color: Color.white.opacity(0.35), radius: 14, x: 0, y: 0)
-                } else {
-                    Capsule()
-                        .fill(Color.white.opacity(configuration.isPressed ? 0.22 : 0.14))
-                        .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 4)
-                }
-            }
-            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}
-
-public extension ButtonStyle where Self == GlassButtonStyle {
-    static var glass: GlassButtonStyle { GlassButtonStyle(isProminent: false) }
-    static var glassProminent: GlassButtonStyle { GlassButtonStyle(isProminent: true) }
-}
-
-/// Clean native rendering engine for Liquid Glass surfaces
-private struct NativeLiquidGlassModifier: ViewModifier {
-    let style: GlassEffectStyle
-    let shape: GlassShapeToken
-    @State private var isPressed: Bool = false
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                glassBackdrop
-            }
-            .clipShape(shapeView)
-            .scaleEffect(style.isInteractive && isPressed ? 0.98 : 1.0)
-            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: isPressed)
-            .simultaneousGesture(
-                style.isInteractive ?
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPressed = true }
-                    .onEnded { _ in isPressed = false }
-                : nil
+            .foregroundStyle(isProminent ? Color.black : Color.primary)
+            .glassEffect(
+                SwiftUI.Glass.regular
+                    .interactive(configuration.isPressed)
+                    .tint(isProminent ? Color.white.opacity(0.88) : nil),
+                in: Capsule()
             )
-    }
-
-    @ViewBuilder
-    private var glassBackdrop: some View {
-        switch style.variant {
-        case .regular:
-            shapeView
-                .fill(Color.white.opacity(0.12))
-                .shadow(color: Color.black.opacity(0.24), radius: 18, x: 0, y: 8)
-                .shadow(color: Color.white.opacity(0.09), radius: 1, x: 0, y: -1)
-        case .clear:
-            shapeView
-                .fill(Color.white.opacity(0.04))
-                .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
-        }
-    }
-
-    private var shapeView: AnyShape {
-        switch shape.kind {
-        case .capsule:
-            return AnyShape(Capsule())
-        case .rect(let radius):
-            return AnyShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
-        }
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(
+                .spring(response: 0.35, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
