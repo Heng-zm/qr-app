@@ -9,6 +9,7 @@ import SwiftUI
 import PhotosUI
 import AVFoundation
 import CoreImage
+import AudioToolbox
 
 public struct ScannerView: View {
     @Binding var hasCompletedOnboarding: Bool
@@ -17,6 +18,7 @@ public struct ScannerView: View {
     // Preferences
     @AppStorage("glassqr_auto_copy") private var autoCopyOnScan: Bool = false
     @AppStorage("glassqr_haptics_enabled") private var hapticsEnabled: Bool = true
+    @AppStorage("glassqr_sound_enabled") private var soundEnabled: Bool = true
 
     // Scan Mode: Single (pops sheet) vs Batch (saves and keeps scanning)
     @State private var isBatchMode: Bool = false
@@ -64,8 +66,8 @@ public struct ScannerView: View {
                 zoomFactor: $zoomFactor,
                 cameraPosition: $cameraPosition,
                 isSimulatedSession: $isSimulatedSession,
-                onCodeDetected: { code in
-                    handleDetectedCode(code)
+                onCodeDetected: { code, symbology in
+                    handleDetectedCode(code, symbology: symbology)
                 },
                 onFocusPointTapped: { point in
                     triggerFocusAnimation(at: point)
@@ -302,12 +304,13 @@ public struct ScannerView: View {
                     Section {
                         Toggle("Auto-Copy on Scan", isOn: $autoCopyOnScan)
                         Toggle("Haptic Feedback", isOn: $hapticsEnabled)
+                        Toggle("Sound Chime", isOn: $soundEnabled)
                     } header: {
                         Text("Preferences")
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.5))
                     } footer: {
-                        Text("When Auto-Copy is active, scanned codes are copied to your clipboard instantly.")
+                        Text("Plays an instant chime and haptic confirmation when any QR or barcode is recognized.")
                             .font(.system(size: 11, design: .rounded))
                             .foregroundStyle(.white.opacity(0.4))
                     }
@@ -460,6 +463,16 @@ public struct ScannerView: View {
                     handleDetectedCode("GlassQR: Ultra-clean minimal interface")
                 }
                 .buttonStyle(.glass)
+
+                Button("EAN-13") {
+                    handleDetectedCode("4006381333931", symbology: "EAN-13")
+                }
+                .buttonStyle(.glass)
+
+                Button("Code 128") {
+                    handleDetectedCode("PKG-99281-US", symbology: "Code 128")
+                }
+                .buttonStyle(.glass)
             }
             .padding(.horizontal, 10)
         }
@@ -474,7 +487,7 @@ public struct ScannerView: View {
         loadHistory().count
     }
 
-    private func handleDetectedCode(_ code: String) {
+    private func handleDetectedCode(_ code: String, symbology: String = "QR Code") {
         // Throttling: Ignore identical duplicate scans within 1.5 seconds
         let now = Date()
         if code == lastScannedPayload && now.timeIntervalSince(lastScannedTimestamp) < 1.5 {
@@ -488,11 +501,15 @@ public struct ScannerView: View {
             scanFeedbackTrigger += 1
         }
 
+        if soundEnabled {
+            AudioServicesPlaySystemSound(1057)
+        }
+
         if autoCopyOnScan {
             UIPasteboard.general.string = code
         }
 
-        let item = ScanResultItem(payload: code)
+        let item = ScanResultItem(payload: code, symbology: symbology)
         saveToHistory(item)
 
         if isBatchMode {

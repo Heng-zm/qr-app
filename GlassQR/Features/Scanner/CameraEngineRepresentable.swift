@@ -12,7 +12,7 @@ struct CameraEngineRepresentable: UIViewControllerRepresentable {
     @Binding var zoomFactor: CGFloat
     @Binding var cameraPosition: AVCaptureDevice.Position
     @Binding var isSimulatedSession: Bool
-    let onCodeDetected: (String) -> Void
+    let onCodeDetected: (String, String) -> Void
     let onFocusPointTapped: ((CGPoint) -> Void)?
 
     init(
@@ -21,7 +21,7 @@ struct CameraEngineRepresentable: UIViewControllerRepresentable {
         zoomFactor: Binding<CGFloat>,
         cameraPosition: Binding<AVCaptureDevice.Position>,
         isSimulatedSession: Binding<Bool>,
-        onCodeDetected: @escaping (String) -> Void,
+        onCodeDetected: @escaping (String, String) -> Void,
         onFocusPointTapped: ((CGPoint) -> Void)? = nil
     ) {
         self._isTorchOn = isTorchOn
@@ -57,9 +57,9 @@ struct CameraEngineRepresentable: UIViewControllerRepresentable {
             self.parent = parent
         }
 
-        func cameraViewController(_ controller: CameraViewController, didOutputCode code: String) {
+        func cameraViewController(_ controller: CameraViewController, didOutputCode code: String, symbology: String) {
             DispatchQueue.main.async {
-                self.parent.onCodeDetected(code)
+                self.parent.onCodeDetected(code, symbology)
             }
         }
 
@@ -78,7 +78,7 @@ struct CameraEngineRepresentable: UIViewControllerRepresentable {
 }
 
 protocol CameraViewControllerDelegate: AnyObject {
-    func cameraViewController(_ controller: CameraViewController, didOutputCode code: String)
+    func cameraViewController(_ controller: CameraViewController, didOutputCode code: String, symbology: String)
     func cameraViewControllerDidFallbackToSimulation(_ controller: CameraViewController)
     func cameraViewController(_ controller: CameraViewController, didTapFocusAt point: CGPoint)
 }
@@ -172,7 +172,12 @@ final class CameraViewController: UIViewController, AVCaptureMetadataOutputObjec
             if self.captureSession.canAddOutput(metadataOutput) {
                 self.captureSession.addOutput(metadataOutput)
                 metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-                metadataOutput.metadataObjectTypes = [.qr]
+
+                let desiredTypes: [AVMetadataObject.ObjectType] = [
+                    .qr, .ean13, .ean8, .upce, .code128, .code39, .code93, .dataMatrix, .pdf417, .aztec
+                ]
+                let availableTypes = metadataOutput.availableMetadataObjectTypes
+                metadataOutput.metadataObjectTypes = desiredTypes.filter { availableTypes.contains($0) }
             }
             self.captureSession.commitConfiguration()
 
@@ -252,10 +257,26 @@ final class CameraViewController: UIViewController, AVCaptureMetadataOutputObjec
     ) {
         guard !isPausedInternal,
               let metadataObj = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
-              metadataObj.type == .qr,
               let stringVal = metadataObj.stringValue else { return }
 
-        delegate?.cameraViewController(self, didOutputCode: stringVal)
+        let symbology = Self.humanReadableSymbology(for: metadataObj.type)
+        delegate?.cameraViewController(self, didOutputCode: stringVal, symbology: symbology)
+    }
+
+    static func humanReadableSymbology(for type: AVMetadataObject.ObjectType) -> String {
+        switch type {
+        case .qr: return "QR Code"
+        case .ean13: return "EAN-13"
+        case .ean8: return "EAN-8"
+        case .upce: return "UPC-E"
+        case .code128: return "Code 128"
+        case .code39: return "Code 39"
+        case .code93: return "Code 93"
+        case .dataMatrix: return "Data Matrix"
+        case .pdf417: return "PDF417"
+        case .aztec: return "Aztec"
+        default: return "Barcode"
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {

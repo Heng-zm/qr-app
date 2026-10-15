@@ -101,13 +101,17 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Grouped controls paired with `@Namespace` and `.glassEffectID(_:in:)` morph and split like liquid droplets during state transitions.
 
 ### 2. High-Performance Optical Engines
-- **Real-Time Vector QR Generation**:
-  - Uses `CoreImage.CIFilterBuiltins` (`CIFilter.qrCodeGenerator()`) with `.interpolation(.none)` and custom affine vector scaling to deliver razor-sharp QR codes live as text is typed.
-  - Native `ShareLink` and clipboard image export.
-- **Live AVCaptureSession & Simulator Bypass**:
-  - Thread-safe camera capture running on a dedicated serial background queue.
-  - Automatic detection of simulator/preview environments with an interactive **"Simulate QR Scan"** bypass mode.
-  - Hardware torch control and pause/resume stream toggling.
+- **Real-Time Vector QR & Multi-Format Generation**:
+  - Uses `CoreImage.CIFilterBuiltins` (`CIFilter.qrCodeGenerator()`) with `.interpolation(.none)` and custom affine vector scaling.
+  - **Custom Center Logo**: Embed any photo or brand mark from your Photos library with anti-aliased squircle clipping.
+  - **Error Correction Selector**: Switch between Low (7%), Medium (15%), Quartile (25%), and High (30%) recovery.
+  - **Infinitely Scalable Vector Exports**: Export to pure mathematical **SVG** and **Vector PDF** alongside standard PNG.
+- **Universal 1D/2D Barcode & Camera Scanner**:
+  - Supports all standard symbologies: **QR Code**, **EAN-13**, **EAN-8**, **UPC-E**, **Code 128**, **Code 39**, **Code 93**, **Data Matrix**, **PDF417**, and **Aztec**.
+  - **Instant Audio Chime**: Subtle confirmation sound effect and haptic response on code recognition.
+  - **One-Tap Product Lookups**: Instant Google and Amazon search buttons for retail product barcodes.
+  - Thread-safe camera capture running on a dedicated serial background queue with tap-to-focus and optical zoom.
+  - Automatic detection of simulator/preview environments with interactive bypass testing chips.
 
 ### 3. Living Liquid MeshGradient
 - An oscillating `MeshGradient` powered by `TimelineView(.animation)` shifts through deep midnight indigo, electric violet, ocean cyan, and liquid magenta, creating a rich dynamic palette that refracts through every floating glass element in real time.

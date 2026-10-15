@@ -46,9 +46,18 @@ public struct ScanResultSheetView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(titleText)
-                            .font(.system(size: 17, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                        HStack(spacing: 6) {
+                            Text(titleText)
+                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white)
+
+                            Text(result.symbology)
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(Capsule().fill(Color.white.opacity(0.12)))
+                                .foregroundStyle(.white.opacity(0.75))
+                        }
 
                         Text(result.timestamp.formatted(date: .abbreviated, time: .shortened))
                             .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -82,6 +91,9 @@ public struct ScanResultSheetView: View {
 
                     case .geo(let lat, let lon, _):
                         geoCard(latitude: lat, longitude: lon)
+
+                    case .productBarcode(let code, let format):
+                        productBarcodeCard(code: code, format: format)
 
                     case .text(let text):
                         textCard(text: text)
@@ -356,6 +368,64 @@ public struct ScanResultSheetView: View {
         )
     }
 
+    @ViewBuilder
+    private func productBarcodeCard(code: String, format: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("\(format.uppercased()) PRODUCT BARCODE")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.45))
+                Spacer()
+                Image(systemName: "barcode.viewfinder")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            Text(code)
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white)
+
+            HStack(spacing: 8) {
+                // Search on Google
+                Button {
+                    if let query = code.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                       let url = URL(string: "https://www.google.com/search?q=\(query)") {
+                        openURL(url)
+                    }
+                } label: {
+                    Label("Search Google", systemImage: "magnifyingglass")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+
+                // Search on Amazon
+                Button {
+                    if let query = code.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                       let url = URL(string: "https://www.amazon.com/s?k=\(query)") {
+                        openURL(url)
+                    }
+                } label: {
+                    Label("Amazon", systemImage: "cart")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+            }
+            .padding(.top, 4)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+        )
+    }
+
     // MARK: - Action Buttons
 
     @ViewBuilder
@@ -524,6 +594,29 @@ public struct ScanResultSheetView: View {
                 }
             }
 
+        case .productBarcode(let code, _):
+            HStack(spacing: 12) {
+                Button {
+                    copyToClipboard(code)
+                } label: {
+                    Label(copied ? "Copied" : "Copy Barcode", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+
+                if let query = code.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                   let searchURL = URL(string: "https://www.google.com/search?q=\(query)") {
+                    Button {
+                        openURL(searchURL)
+                        dismiss()
+                    } label: {
+                        Label("Search Product", systemImage: "magnifyingglass")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            }
+
         case .text(let text):
             HStack(spacing: 12) {
                 Button {
@@ -566,6 +659,7 @@ public struct ScanResultSheetView: View {
         case .sms: return "message.fill"
         case .contact: return "person.crop.circle"
         case .geo: return "map.fill"
+        case .productBarcode: return "barcode.viewfinder"
         case .text: return "doc.text"
         }
     }
@@ -579,6 +673,7 @@ public struct ScanResultSheetView: View {
         case .sms: return "SMS Message"
         case .contact: return "Contact vCard"
         case .geo: return "Map Coordinates"
+        case .productBarcode(_, let format): return "\(format) Barcode"
         case .text: return "Text Payload"
         }
     }

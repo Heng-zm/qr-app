@@ -9,11 +9,38 @@ public struct ScanResultItem: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public let payload: String
     public let timestamp: Date
+    public let symbology: String
 
-    public init(id: UUID = UUID(), payload: String, timestamp: Date = Date()) {
+    public init(
+        id: UUID = UUID(),
+        payload: String,
+        timestamp: Date = Date(),
+        symbology: String = "QR Code"
+    ) {
         self.id = id
         self.payload = payload
         self.timestamp = timestamp
+        self.symbology = symbology
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, payload, timestamp, symbology
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.payload = try container.decode(String.self, forKey: .payload)
+        self.timestamp = try container.decode(Date.self, forKey: .timestamp)
+        self.symbology = try container.decodeIfPresent(String.self, forKey: .symbology) ?? "QR Code"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(payload, forKey: .payload)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(symbology, forKey: .symbology)
     }
 
     public enum PayloadCategory: Sendable, Equatable {
@@ -24,11 +51,20 @@ public struct ScanResultItem: Identifiable, Equatable, Sendable, Codable {
         case sms(number: String, message: String?)
         case contact(name: String, phone: String?, email: String?, org: String?)
         case geo(latitude: Double, longitude: Double, label: String?)
+        case productBarcode(code: String, format: String)
         case text(String)
     }
 
     public var category: PayloadCategory {
         let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Product Barcodes (EAN, UPC, Code 128, etc.)
+        if symbology != "QR Code" {
+            let isNumericCode = trimmed.allSatisfy { $0.isNumber }
+            if isNumericCode && (trimmed.count == 8 || trimmed.count == 12 || trimmed.count == 13 || trimmed.count == 14) {
+                return .productBarcode(code: trimmed, format: symbology)
+            }
+        }
 
         // vCard Contact detection (e.g. BEGIN:VCARD ... END:VCARD)
         if trimmed.uppercased().contains("BEGIN:VCARD") {

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import PhotosUI
 
 public struct GeneratorView: View {
     @Binding var hasCompletedOnboarding: Bool
@@ -78,6 +79,9 @@ public struct GeneratorView: View {
     @State private var selectedTemplate: GeneratorTemplate = .url
     @State private var selectedTheme: QRColorTheme = .obsidian
     @State private var selectedBadge: CenterBadge = .none
+    @State private var selectedCorrectionLevel: QRErrorCorrectionLevel = .high
+    @State private var customLogoItem: PhotosPickerItem? = nil
+    @State private var customLogoImage: UIImage? = nil
 
     // Raw Inputs
     @State private var inputText: String = "https://apple.com"
@@ -162,7 +166,26 @@ public struct GeneratorView: View {
             renderCurrentQR()
         }
         .onChange(of: selectedBadge) { _, _ in
+            if selectedBadge != .none {
+                customLogoImage = nil
+                customLogoItem = nil
+            }
             renderCurrentQR()
+        }
+        .onChange(of: selectedCorrectionLevel) { _, _ in
+            renderCurrentQR()
+        }
+        .onChange(of: customLogoItem) { _, newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let img = UIImage(data: data) {
+                    await MainActor.run {
+                        customLogoImage = img
+                        selectedBadge = .none
+                        renderCurrentQR()
+                    }
+                }
+            }
         }
     }
 
@@ -362,21 +385,94 @@ public struct GeneratorView: View {
     // MARK: - Styling Platter (Color & Center Badge)
 
     private var stylingPlatter: some View {
-        HStack(spacing: 16) {
-            colorThemeSelector
-            Spacer()
-            badgeSelector
+        VStack(spacing: 12) {
+            // Row 1: Themes & Error Correction
+            HStack(spacing: 12) {
+                colorThemeSelector
+                Spacer()
+                correctionLevelMenu
+            }
+
+            Divider()
+                .background(Color.white.opacity(0.08))
+
+            // Row 2: Center Icon & Custom Photo Logo
+            HStack(spacing: 10) {
+                badgeSelector
+
+                Spacer()
+
+                // Custom Logo Photos Picker
+                PhotosPicker(selection: $customLogoItem, matching: .images) {
+                    HStack(spacing: 6) {
+                        Image(systemName: customLogoImage == nil ? "photo.badge.plus" : "photo.fill")
+                            .font(.system(size: 12))
+                        Text(customLogoImage == nil ? "Custom Logo" : "Change Logo")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .foregroundStyle(customLogoImage == nil ? Color.white.opacity(0.85) : Color.white)
+                    .background(Capsule().fill(customLogoImage == nil ? Color.white.opacity(0.08) : Color.cyan.opacity(0.2)))
+                }
+
+                if customLogoImage != nil {
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            customLogoImage = nil
+                            customLogoItem = nil
+                            renderCurrentQR()
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.white.opacity(0.55))
+                    }
+                }
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color.white.opacity(0.04))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(Color.white.opacity(0.07), lineWidth: 1)
                 )
         )
+    }
+
+    private var correctionLevelMenu: some View {
+        Menu {
+            ForEach(QRErrorCorrectionLevel.allCases) { level in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        selectedCorrectionLevel = level
+                    }
+                } label: {
+                    HStack {
+                        Text(level.title)
+                        if selectedCorrectionLevel == level {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "shield.lefthalf.filled")
+                    .font(.system(size: 11))
+                Text("EC: \(selectedCorrectionLevel.rawValue)")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .foregroundStyle(Color.white.opacity(0.85))
+            .background(Capsule().fill(Color.white.opacity(0.08)))
+        }
     }
 
     private var colorThemeSelector: some View {
@@ -507,7 +603,7 @@ public struct GeneratorView: View {
     }
 
     private func actionBar(image: UIImage) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             // Copy Image
             Button {
                 UIPasteboard.general.image = image
@@ -530,18 +626,68 @@ public struct GeneratorView: View {
             }
             .buttonStyle(.glass)
 
-            // Native Share
-            ShareLink(
-                item: Image(uiImage: image),
-                preview: SharePreview("QR Code", image: Image(uiImage: image))
-            ) {
-                Label("Share", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .frame(maxWidth: .infinity)
+            // Export Menu (PNG, Vector PDF, Vector SVG)
+            Menu {
+                ShareLink(
+                    item: Image(uiImage: image),
+                    preview: SharePreview("QR Code", image: Image(uiImage: image))
+                ) {
+                    Label("Share PNG Image", systemImage: "photo")
+                }
+
+                Button {
+                    sharePDF()
+                } label: {
+                    Label("Export Vector PDF", systemImage: "doc.text.fill")
+                }
+
+                Button {
+                    copySVGCode()
+                } label: {
+                    Label("Copy Vector SVG", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Export")
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9))
+                }
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)
+    }
+
+    private func sharePDF() {
+        guard let pdfData = generatorEngine.renderPDF(
+            text: currentPayload,
+            foregroundColor: selectedTheme.uiColor,
+            backgroundColor: .white,
+            correctionLevel: selectedCorrectionLevel
+        ) else { return }
+
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("GlassQR_Vector.pdf")
+        try? pdfData.write(to: tempURL)
+
+        let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            rootVC.present(activityVC, animated: true)
+        }
+    }
+
+    private func copySVGCode() {
+        guard let svg = generatorEngine.renderSVG(
+            text: currentPayload,
+            foregroundColor: selectedTheme.uiColor,
+            backgroundColor: .white,
+            correctionLevel: selectedCorrectionLevel
+        ) else { return }
+
+        UIPasteboard.general.string = svg
+        triggerToast("Vector SVG Copied")
     }
 
     private func toastBanner(message: String) -> some View {
@@ -647,7 +793,9 @@ public struct GeneratorView: View {
             text: payload,
             foregroundColor: selectedTheme.uiColor,
             backgroundColor: .white,
-            centerIconName: selectedBadge.iconName
+            centerIconName: selectedBadge.iconName,
+            customLogo: customLogoImage,
+            correctionLevel: selectedCorrectionLevel
         )
     }
 }
