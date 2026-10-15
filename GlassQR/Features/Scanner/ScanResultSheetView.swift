@@ -18,7 +18,7 @@ public struct ScanResultSheetView: View {
         self.result = result
     }
 
-    var body: some View {
+    public var body: some View {
         ZStack {
             // Refracting Mesh Gradient Sheet Backdrop
             LiquidMeshGradientView()
