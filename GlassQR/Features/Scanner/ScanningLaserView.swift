@@ -2,7 +2,7 @@
 //  ScanningLaserView.swift
 //  GlassQR
 //
-//  Radiant Liquid Glass Optical Laser
+//  Clean Minimalist Scan Line (Apple & ChatGPT Style)
 //
 
 import SwiftUI
@@ -14,52 +14,44 @@ public struct ScanningLaserView: View {
 
     public var body: some View {
         ZStack {
-            // Refractive Ambient Light Fan
+            // Subtle Ambient Trail
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.cyan.opacity(0.22),
-                            Color.indigo.opacity(0.08),
+                            Color.white.opacity(0.12),
+                            Color.cyan.opacity(0.04),
                             Color.clear
                         ],
                         startPoint: .bottom,
                         endPoint: .top
                     )
                 )
-                .frame(height: 56)
-                .offset(y: scanOffset - 28)
+                .frame(height: 36)
+                .offset(y: scanOffset - 18)
 
-            // Radiant Dual Core Laser Beam
+            // Sleek Crisp Scan Line
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.cyan.opacity(0.0),
-                            Color(red: 0.2, green: 0.9, blue: 1.0),
-                            Color.white,
-                            Color(red: 0.2, green: 0.9, blue: 1.0),
-                            Color.cyan.opacity(0.0)
+                            Color.white.opacity(0.0),
+                            Color.white.opacity(0.95),
+                            Color.cyan,
+                            Color.white.opacity(0.95),
+                            Color.white.opacity(0.0)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
-                .frame(height: 3.5)
-                .shadow(color: .cyan, radius: 12, x: 0, y: 0)
-                .shadow(color: .white, radius: 4, x: 0, y: 0)
-                .offset(y: scanOffset)
-
-            // Micro Optical Beam Flare
-            Circle()
-                .fill(Color.white)
-                .frame(width: 8, height: 8)
-                .shadow(color: .cyan, radius: 8)
+                .frame(height: 2)
+                .shadow(color: Color.cyan.opacity(0.6), radius: 6, x: 0, y: 0)
                 .offset(y: scanOffset)
         }
         .onAppear {
             withAnimation(
-                .easeInOut(duration: 2.1)
+                .easeInOut(duration: 2.2)
                 .repeatForever(autoreverses: true)
             ) {
                 scanOffset = 115

@@ -2,6 +2,8 @@
 //  GeneratorView.swift
 //  GlassQR
 //
+//  Clean Minimalist QR Code Generator (Apple & ChatGPT Style)
+//
 
 import SwiftUI
 
@@ -23,89 +25,90 @@ public struct GeneratorView: View {
     public var body: some View {
         ScrollView {
             VStack(spacing: 28) {
-                // Interactive Glass Input Bar
-                GlassEffectContainer(spacing: 16) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "link")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.cyan)
+                // ChatGPT-style Clean Floating Input Capsule
+                HStack(spacing: 12) {
+                    Image(systemName: "link")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.55))
 
-                        TextField("Enter URL, Wi-Fi or Plain Text...", text: $inputText)
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white)
+                    TextField("Enter URL, Wi-Fi or text...", text: $inputText)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white)
 
-                        if !inputText.isEmpty {
-                            Button {
-                                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                                    inputText = ""
-                                }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(.white.opacity(0.6))
+                    if !inputText.isEmpty {
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                inputText = ""
                             }
-                            .buttonStyle(.glass)
-                            .glassEffectID("clearButton", in: generatorNamespace)
-                            .glassEffectTransition(.materialize)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.white.opacity(0.45))
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 14)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                    .glassEffectID("inputFieldCapsule", in: generatorNamespace)
                 }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
 
-                // Crisp QR Vector Rendering Card
-                VStack(spacing: 18) {
+                // Clean Crisp QR Card Display
+                VStack(spacing: 20) {
                     if let image = qrImage {
                         ZStack {
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
                                 .fill(Color.white)
-                                .shadow(color: Color.black.opacity(0.18), radius: 16, x: 0, y: 8)
+                                .shadow(color: Color.black.opacity(0.2), radius: 16, x: 0, y: 6)
 
                             Image(uiImage: image)
                                 .interpolation(.none)
                                 .resizable()
                                 .scaledToFit()
-                                .padding(22)
+                                .padding(20)
                         }
-                        .frame(width: 260, height: 260)
-                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 32))
-                        .glassEffectTransition(.materialize)
+                        .frame(width: 250, height: 250)
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
                     } else {
                         ZStack {
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color.white.opacity(0.04))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                                )
 
-                            VStack(spacing: 12) {
+                            VStack(spacing: 10) {
                                 Image(systemName: "qrcode")
-                                    .font(.system(size: 54))
-                                    .foregroundStyle(.white.opacity(0.35))
-                                    .symbolEffect(.breathe, options: .repeating)
+                                    .font(.system(size: 48, weight: .light))
+                                    .foregroundStyle(.white.opacity(0.25))
 
-                                Text("Type to generate Liquid QR")
+                                Text("Enter text to generate QR")
                                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.white.opacity(0.5))
+                                    .foregroundStyle(.white.opacity(0.45))
                             }
                         }
-                        .frame(width: 260, height: 260)
-                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 32))
+                        .frame(width: 250, height: 250)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
 
-                // Morphing Action Bar (Expands dynamically from droplet)
+                // Clean Action Bar
                 if !inputText.isEmpty, let image = qrImage {
-                    GlassEffectContainer(spacing: 20) {
-                        // Copy Button
+                    HStack(spacing: 14) {
                         Button {
                             UIPasteboard.general.image = image
                             copyHapticTrigger += 1
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                                 showCopiedHUD = true
                             }
                             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
@@ -114,50 +117,54 @@ public struct GeneratorView: View {
                                 }
                             }
                         } label: {
-                            Label("Copy Image", systemImage: "doc.on.doc.fill")
+                            Label("Copy Image", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.glass)
-                        .glassEffectID("copyActionButton", in: generatorNamespace)
 
-                        // Native ShareLink Button
                         ShareLink(
                             item: Image(uiImage: image),
-                            preview: SharePreview("Liquid QR Code", image: Image(uiImage: image))
+                            preview: SharePreview("QR Code", image: Image(uiImage: image))
                         ) {
-                            Label("Share Code", systemImage: "square.and.arrow.up.fill")
+                            Label("Share", systemImage: "square.and.arrow.up")
+                                .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.glassProminent)
-                        .glassEffectID("shareActionButton", in: generatorNamespace)
                     }
-                    .glassEffectTransition(.materialize)
+                    .padding(.horizontal, 24)
                     .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)
                 }
 
-                // Transient Copy HUD Pill
+                // Clean Floating Copied Notification Pill
                 if showCopiedHUD {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("QR Image Copied to Clipboard")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                        Text("Copied to Clipboard")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundStyle(.white)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .glassEffect()
-                    .glassEffectTransition(.materialize)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color(red: 0.15, green: 0.15, blue: 0.18))
+                            .shadow(color: Color.black.opacity(0.3), radius: 8)
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 32)
             }
         }
-        .navigationTitle("Liquid Generator")
+        .navigationTitle("Generator")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             renderQR(for: inputText)
         }
         .onChange(of: inputText) { _, newValue in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
                 renderQR(for: newValue)
             }
         }

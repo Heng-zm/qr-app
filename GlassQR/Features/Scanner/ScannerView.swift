@@ -2,7 +2,7 @@
 //  ScannerView.swift
 //  GlassQR
 //
-//  iOS 26 Liquid Glass Optical Scanner Interface
+//  Clean Minimalist Camera Scanner Interface (Apple & ChatGPT Style)
 //
 
 import SwiftUI
@@ -14,7 +14,7 @@ public struct ScannerView: View {
     @Binding var hasCompletedOnboarding: Bool
     @Namespace private var scannerNamespace
 
-    // Camera Controls
+    // Camera State
     @State private var isTorchOn: Bool = false
     @State private var isPaused: Bool = false
     @State private var zoomFactor: CGFloat = 1.0
@@ -34,10 +34,10 @@ public struct ScannerView: View {
     // Photo Library Picker
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var isAnalyzingPhoto: Bool = false
-    @State private var showSimulatorDrawer: Bool = false
+    @State private var showSimulatorSheet: Bool = false
 
-    private let zoomPresets: [CGFloat] = [0.5, 1.0, 2.0, 3.0]
-    private let viewfinderSize: CGFloat = 270
+    private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
+    private let cutoutSize: CGFloat = 260
 
     public init(hasCompletedOnboarding: Binding<Bool>) {
         self._hasCompletedOnboarding = hasCompletedOnboarding
@@ -45,7 +45,7 @@ public struct ScannerView: View {
 
     public var body: some View {
         ZStack {
-            // Live Camera Feed Layer
+            // Live Camera View Layer
             CameraEngineRepresentable(
                 isTorchOn: $isTorchOn,
                 isPaused: $isPaused,
@@ -61,23 +61,22 @@ public struct ScannerView: View {
             )
             .ignoresSafeArea()
 
-            // Cinematic Frosted Vignette with Viewfinder Cutout
+            // Clean Dark Vignette with Smooth Cutout
             GeometryReader { proxy in
                 let size = proxy.size
                 let rect = CGRect(
-                    x: (size.width - viewfinderSize) / 2,
-                    y: (size.height - viewfinderSize) / 2 - 20,
-                    width: viewfinderSize,
-                    height: viewfinderSize
+                    x: (size.width - cutoutSize) / 2,
+                    y: (size.height - cutoutSize) / 2 - 24,
+                    width: cutoutSize,
+                    height: cutoutSize
                 )
 
                 ZStack {
-                    // Dark ambient frosted glass mask outside cutout
-                    Color.black.opacity(0.42)
+                    Color.black.opacity(0.48)
                         .mask {
                             Rectangle()
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                                    RoundedRectangle(cornerRadius: 28, style: .continuous)
                                         .frame(width: rect.width, height: rect.height)
                                         .position(x: rect.midX, y: rect.midY)
                                         .blendMode(.destinationOut)
@@ -88,54 +87,43 @@ public struct ScannerView: View {
             }
             .ignoresSafeArea()
 
-            // Tap-to-focus Pulsing Liquid Glass Ring
+            // Tap-to-focus Pulsing Ring
             if showFocusRing, let point = focusPoint {
-                ZStack {
-                    Circle()
-                        .stroke(Color.cyan, lineWidth: 2)
-                        .frame(width: 64, height: 64)
-                        .shadow(color: .cyan, radius: 10)
-
-                    Circle()
-                        .stroke(Color.white.opacity(0.6), lineWidth: 1)
-                        .frame(width: 48, height: 48)
-
-                    Circle()
-                        .fill(Color.cyan)
-                        .frame(width: 4, height: 4)
-                }
-                .position(point)
-                .transition(.scale.combined(with: .opacity))
+                Circle()
+                    .stroke(Color.white.opacity(0.9), lineWidth: 1.5)
+                    .frame(width: 56, height: 56)
+                    .position(point)
+                    .transition(.scale.combined(with: .opacity))
             }
 
-            // Foreground UI Controls Overlay
+            // Clean Minimalist Controls Overlay
             VStack(spacing: 0) {
-                // Top Floating Command Platter
-                topCommandBar
-                    .padding(.top, 14)
+                // Top Minimalist Command Bar
+                topHUD
+                    .padding(.top, 16)
                     .padding(.horizontal, 20)
 
                 Spacer()
 
-                // Center Holographic Viewfinder Region
-                centralViewfinderFrame
-                    .padding(.bottom, 20)
+                // Center Clean Viewfinder Frame
+                centralViewfinder
+                    .padding(.bottom, 24)
 
                 Spacer()
 
-                // Bottom Liquid Glass Controls (Zoom + Photos)
-                bottomControlsBar
+                // Bottom Minimalist Controls: Zoom & Photo Picker
+                bottomControls
                     .padding(.bottom, 24)
                     .padding(.horizontal, 24)
 
-                // Expandable Simulator Testing Platter
+                // Simulator Test Chip (Preview mode)
                 if isSimulatedSession {
-                    simulatorTestingConsole
+                    simulatorTestChip
                         .padding(.bottom, 12)
                 }
             }
         }
-        .navigationTitle("Liquid Scanner")
+        .navigationTitle("Scanner")
         .navigationBarTitleDisplayMode(.inline)
         .sensoryFeedback(.success, trigger: scanFeedbackTrigger)
         .sheet(item: $activeScanResult) { result in
@@ -158,151 +146,122 @@ public struct ScannerView: View {
         }
     }
 
-    // MARK: - UI Components
+    // MARK: - UI Subviews
 
-    private var topCommandBar: some View {
+    private var topHUD: some View {
         VStack(spacing: 12) {
-            // Primary Control Platter
-            GlassEffectContainer(spacing: 14) {
-                // Torch Button with Glowing Active State
+            // Minimalist Floating Pill Platter
+            GlassEffectContainer(spacing: 12) {
+                // Torch Button
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                         isTorchOn.toggle()
                     }
                 } label: {
                     Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(isTorchOn ? Color.yellow : Color.white)
-                        .symbolEffect(.bounce, value: isTorchOn)
                 }
                 .buttonStyle(.glass)
-                .background {
-                    if isTorchOn {
-                        Circle()
-                            .fill(Color.yellow.opacity(0.25))
-                            .blur(radius: 10)
-                    }
-                }
                 .glassEffectID("torchControl", in: scannerNamespace)
 
-                // Camera Flip (Rear / Front)
+                // Camera Flip Button
                 Button {
                     withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
                         cameraPosition = (cameraPosition == .back) ? .front : .back
                     }
                 } label: {
-                    Image(systemName: "camera.rotate.fill")
-                        .font(.system(size: 16, weight: .bold))
+                    Image(systemName: "camera.rotate")
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                 }
                 .buttonStyle(.glass)
                 .glassEffectID("flipControl", in: scannerNamespace)
 
-                // Scan History Drawer Button with Counter Badge
+                // Scan History Drawer Button with clean dot badge
                 Button {
                     showHistorySheet = true
                 } label: {
                     ZStack(alignment: .topTrailing) {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 16, weight: .bold))
+                        Image(systemName: "clock")
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(.white)
 
-                        let count = historyCount
-                        if count > 0 {
+                        if historyCount > 0 {
                             Circle()
-                                .fill(Color.cyan)
-                                .frame(width: 8, height: 8)
-                                .offset(x: 4, y: -4)
+                                .fill(Color.white)
+                                .frame(width: 6, height: 6)
+                                .offset(x: 3, y: -3)
                         }
                     }
                 }
                 .buttonStyle(.glass)
                 .glassEffectID("historyControl", in: scannerNamespace)
 
-                // Scanner Pause / Resume Toggle
+                // Pause / Resume Button
                 Button {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
                         isPaused.toggle()
                     }
                 } label: {
                     Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(isPaused ? Color.orange : Color.white)
                 }
                 .buttonStyle(.glass)
                 .glassEffectID("pauseControl", in: scannerNamespace)
             }
 
-            // Status Lensing Pill
-            HStack(spacing: 8) {
+            // Minimalist Status Indicator Pill
+            HStack(spacing: 7) {
                 Circle()
                     .fill(isPaused ? Color.orange : Color.green)
-                    .frame(width: 7, height: 7)
-                    .shadow(color: isPaused ? .orange : .green, radius: 4)
+                    .frame(width: 6, height: 6)
 
-                Text(isPaused ? "SCANNER PAUSED" : "OPTICAL ENGINE READY")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.88))
-                    .tracking(1.2)
+                Text(isPaused ? "Scanner Paused" : "Point at QR Code")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
             .glassEffect()
         }
     }
 
-    private var centralViewfinderFrame: some View {
+    private var centralViewfinder: some View {
         ZStack {
-            // Specular Glass Border Frame
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.4),
-                            Color.cyan.opacity(0.3),
-                            Color.white.opacity(0.15)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.5
-                )
-                .frame(width: viewfinderSize, height: viewfinderSize)
-                .glassEffect(.clear, in: .rect(cornerRadius: 32))
-
-            // Holographic Optical Reticle with Radar Sweep
+            // Clean Reticle Brackets
             ScannerReticleView()
-                .frame(width: viewfinderSize, height: viewfinderSize)
+                .frame(width: cutoutSize, height: cutoutSize)
 
-            // Radiant Dual-Core Scanning Laser
+            // Sleek Scan Laser Line
             if !isPaused {
                 ScanningLaserView()
-                    .frame(width: viewfinderSize - 20, height: viewfinderSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .frame(width: cutoutSize - 16, height: cutoutSize)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
             }
         }
-        .frame(width: viewfinderSize, height: viewfinderSize)
+        .frame(width: cutoutSize, height: cutoutSize)
     }
 
-    private var bottomControlsBar: some View {
-        HStack(spacing: 16) {
-            // Segmented Liquid Glass Zoom Capsule
-            HStack(spacing: 4) {
+    private var bottomControls: some View {
+        HStack(spacing: 14) {
+            // Sleek Segmented Zoom Pill
+            HStack(spacing: 2) {
                 ForEach(zoomPresets, id: \.self) { preset in
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                             zoomFactor = preset
                         }
                     } label: {
-                        Text(preset == 0.5 ? ".5x" : "\(Int(preset))x")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundStyle(zoomFactor == preset ? .cyan : .white.opacity(0.72))
-                            .frame(minWidth: 38, minHeight: 32)
+                        Text("\(Int(preset))x")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(zoomFactor == preset ? Color.black : Color.white.opacity(0.75))
+                            .frame(width: 38, height: 28)
                             .background {
                                 if zoomFactor == preset {
                                     Capsule()
-                                        .fill(Color.white.opacity(0.18))
-                                        .shadow(color: Color.black.opacity(0.2), radius: 4)
+                                        .fill(Color.white)
                                 }
                             }
                     }
@@ -313,65 +272,52 @@ public struct ScannerView: View {
 
             // Photo Library QR Scanner Pill
             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                HStack(spacing: 8) {
-                    Image(systemName: "photo.badge.plus")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text("Photos")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                }
-            }
-            .buttonStyle(.glass)
-        }
-    }
-
-    private var simulatorTestingConsole: some View {
-        VStack(spacing: 8) {
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                    showSimulatorDrawer.toggle()
-                }
-            } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(.cyan)
-                    Text("Simulator Test Payloads")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                    Image(systemName: showSimulatorDrawer ? "chevron.down" : "chevron.up")
-                        .font(.system(size: 10, weight: .bold))
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Photos")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
                 }
-                .foregroundStyle(.white.opacity(0.85))
             }
             .buttonStyle(.glass)
-
-            if showSimulatorDrawer {
-                HStack(spacing: 8) {
-                    Button("URL") {
-                        handleDetectedCode("https://apple.com/visionos")
-                    }
-                    .buttonStyle(.glass)
-
-                    Button("Wi-Fi") {
-                        handleDetectedCode("WIFI:S:ApplePark_Liquid;T:WPA;P:SwiftUI2026;;")
-                    }
-                    .buttonStyle(.glass)
-
-                    Button("Email") {
-                        handleDetectedCode("mailto:developer@apple.com")
-                    }
-                    .buttonStyle(.glass)
-
-                    Button("Note") {
-                        handleDetectedCode("Liquid Glass iOS 26 Scanner Active")
-                    }
-                    .buttonStyle(.glass)
-                }
-                .controlSize(.small)
-                .transition(.scale.combined(with: .opacity))
-            }
         }
     }
 
-    // MARK: - Helper Methods
+    private var simulatorTestChip: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Button("URL") {
+                    handleDetectedCode("https://apple.com/visionos")
+                }
+                .buttonStyle(.glass)
+
+                Button("Wi-Fi") {
+                    handleDetectedCode("WIFI:S:ApplePark_Guest;T:WPA;P:SwiftUI2026;;")
+                }
+                .buttonStyle(.glass)
+
+                Button("Email") {
+                    handleDetectedCode("mailto:developer@apple.com")
+                }
+                .buttonStyle(.glass)
+
+                Button("Note") {
+                    handleDetectedCode("GlassQR: Ultra-clean minimal interface")
+                }
+                .buttonStyle(.glass)
+            }
+            .controlSize(.small)
+
+            Text("Preview Simulation Active")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.45))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .glassEffect()
+    }
+
+    // MARK: - Logic & Scanning Methods
 
     private var historyCount: Int {
         guard let data = scanHistoryData.data(using: .utf8),
@@ -391,11 +337,11 @@ public struct ScannerView: View {
 
     private func triggerFocusAnimation(at point: CGPoint) {
         focusPoint = point
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(.easeOut(duration: 0.15)) {
             showFocusRing = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeIn(duration: 0.25)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            withAnimation(.easeIn(duration: 0.2)) {
                 showFocusRing = false
             }
         }
@@ -447,7 +393,7 @@ public struct ScannerView: View {
     }
 }
 
-// MARK: - Scan History Sheet View
+// MARK: - Minimalist Scan History Sheet
 
 private struct ScanHistoryView: View {
     @Binding var historyData: String
@@ -465,17 +411,18 @@ private struct ScanHistoryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LiquidMeshGradientView()
+                Color(red: 0.06, green: 0.06, blue: 0.08)
                     .ignoresSafeArea()
 
                 if items.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "tray.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.white.opacity(0.3))
+                    VStack(spacing: 10) {
+                        Image(systemName: "tray")
+                            .font(.system(size: 40, weight: .light))
+                            .foregroundStyle(.white.opacity(0.25))
+
                         Text("No Scan History")
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.55))
                     }
                 } else {
                     List {
@@ -484,11 +431,11 @@ private struct ScanHistoryView: View {
                                 dismiss()
                                 onSelectResult(item)
                             } label: {
-                                HStack(spacing: 14) {
+                                HStack(spacing: 12) {
                                     Image(systemName: iconFor(item))
-                                        .font(.system(size: 20, weight: .semibold))
-                                        .foregroundStyle(.cyan)
-                                        .frame(width: 32)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundStyle(.white.opacity(0.85))
+                                        .frame(width: 28)
 
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(item.payload)
@@ -498,31 +445,34 @@ private struct ScanHistoryView: View {
 
                                         Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
                                             .font(.system(size: 11, design: .rounded))
-                                            .foregroundStyle(.white.opacity(0.5))
+                                            .foregroundStyle(.white.opacity(0.45))
                                     }
+
                                     Spacer()
+
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.white.opacity(0.3))
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.white.opacity(0.25))
                                 }
-                                .padding(.vertical, 4)
+                                .padding(.vertical, 3)
                             }
-                            .listRowBackground(Color.white.opacity(0.08))
+                            .listRowBackground(Color.white.opacity(0.05))
                         }
                         .onDelete(perform: deleteItem)
                     }
                     .scrollContentBackground(.hidden)
                 }
             }
-            .navigationTitle("Scan History")
+            .navigationTitle("History")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if !items.isEmpty {
-                        Button("Clear All") {
+                        Button("Clear") {
                             historyData = "[]"
                         }
-                        .foregroundStyle(.red.opacity(0.8))
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundStyle(.red.opacity(0.85))
                     }
                 }
 
@@ -530,7 +480,8 @@ private struct ScanHistoryView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .buttonStyle(.glass)
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
                 }
             }
         }
@@ -547,11 +498,11 @@ private struct ScanHistoryView: View {
 
     private func iconFor(_ item: ScanResultItem) -> String {
         switch item.category {
-        case .webURL: return "globe"
+        case .webURL: return "link"
         case .wifi: return "wifi"
-        case .email: return "envelope.fill"
-        case .phone: return "phone.fill"
-        case .text: return "text.viewfinder"
+        case .email: return "envelope"
+        case .phone: return "phone"
+        case .text: return "doc.text"
         }
     }
 }
