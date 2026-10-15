@@ -109,10 +109,12 @@ jobs:
       - name: Print Xcode Errors on Failure
         if: failure()
         run: |
-          echo "### Xcode Build Errors" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          (grep -i -C 2 "error:" build/xcodebuild.log || tail -n 80 build/xcodebuild.log) >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E "(: error:|fatal error:)" build/xcodebuild.log | head -n 25 | while IFS= read -r line; do
+            echo "::error title=Xcode Compiler Error::$line"
+          done
+          if ! grep -q -E "(: error:|fatal error:)" build/xcodebuild.log; then
+            echo "::error title=Xcode Archive Failed::$(tail -n 5 build/xcodebuild.log | tr '\n' ' ')"
+          fi
 
       - name: Package IPA File
         run: |

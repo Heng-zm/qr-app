@@ -782,8 +782,9 @@ private struct ScanHistoryView: View {
     }
 
     private func deleteItem(at offsets: IndexSet) {
+        let itemsToDelete = offsets.map { filteredItems[$0] }
         var list = allItems
-        list.remove(atOffsets: offsets)
+        list.removeAll { item in itemsToDelete.contains { $0.id == item.id } }
         if let encoded = try? JSONEncoder().encode(list),
            let str = String(data: encoded, encoding: .utf8) {
             historyData = str
