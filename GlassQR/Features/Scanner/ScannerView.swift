@@ -135,16 +135,16 @@ public struct ScannerView: View {
                         .padding(.bottom, 10)
                 }
 
-                // Bottom Minimalist Controls: Zoom & Photo Picker
-                bottomControls
-                    .padding(.bottom, 22)
-                    .padding(.horizontal, 24)
-
                 // Simulator Test Chip (Preview mode)
                 if isSimulatedSession {
                     simulatorTestChip
-                        .padding(.bottom, 10)
+                        .padding(.bottom, 8)
                 }
+
+                // Bottom Minimalist Controls: Zoom & Photo Picker
+                bottomControls
+                    .padding(.bottom, 84)
+                    .padding(.horizontal, 24)
             }
         }
         .navigationTitle("Scanner")

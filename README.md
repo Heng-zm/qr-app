@@ -89,7 +89,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
 
 ### 1. Native iOS 26 Liquid Glass Architecture
 - **Zero Legacy Workarounds**: Strictly avoids deprecated `.ultraThinMaterial` overlays and manual gradient border hacks.
-- **Native Platter Navigation**: Employs `TabView` with `Tab("Generate", ...)` and `Tab("Scan", ...)` so iOS 26 automatically styles and positions the floating Liquid Glass tab platter.
+- **Native Platter Navigation**: Employs a floating `GlassEffectContainer` housing refractive tab platters with spring droplet morphing (`.glassEffectID`), SF Symbol physics, and persistent state preservation across "Generate" and "Scan".
 - **Spec-Driven Glass Modifiers**:
   - Floating HUD pills & toasts: `.glassEffect()`
   - Viewfinder framing: `.glassEffect(.clear, in: .rect(cornerRadius: 32))`
