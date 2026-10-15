@@ -138,8 +138,10 @@ final class SimulatedOCRViewController: UIViewController {
             button.layer.cornerRadius = 14
             button.layer.borderWidth = 1
             button.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
-            button.contentHorizontalAlignment = .left
-            button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+            button.contentHorizontalAlignment = .leading
+            var config = UIButton.Configuration.plain()
+            config.contentInsets = NSDirectionalEdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+            button.configuration = config
 
             let titleStr = "\(card.title)\n\(card.text)"
             let attr = NSMutableAttributedString(string: titleStr)
