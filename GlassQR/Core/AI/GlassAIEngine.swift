@@ -268,7 +268,7 @@ public final class GlassAIEngine: ObservableObject {
         var name = "Alex Morgan"
         var phone = "+1 (555) 234-5678"
         var email = "alex.morgan@example.com"
-        var org = "Acme Corp"
+        let org = "Acme Corp"
 
         // Search for email
         if let match = prompt.range(of: #"[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,64}"#, options: .regularExpression) {

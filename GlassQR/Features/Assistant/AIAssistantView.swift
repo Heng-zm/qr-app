@@ -368,7 +368,7 @@ public struct AIAssistantView: View {
     // MARK: - Suggested QR Widget
 
     private func suggestedQRWidget(_ qr: AISuggestedQR) -> some View {
-        let qrImage = renderer.renderQR(
+        let qrImage = renderer.render(
             text: qr.payload,
             foregroundColor: .black,
             backgroundColor: .white,
