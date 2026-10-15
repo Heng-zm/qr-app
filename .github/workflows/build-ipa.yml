@@ -94,6 +94,7 @@ jobs:
               -archivePath build/GlassQR.xcarchive \
               -allowProvisioningUpdates
           else
+            set -o pipefail
             xcodebuild archive \
               -project GlassQR.xcodeproj \
               -scheme GlassQR \
@@ -102,8 +103,14 @@ jobs:
               -archivePath build/GlassQR.xcarchive \
               CODE_SIGNING_ALLOWED=NO \
               CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY=""
+              CODE_SIGN_IDENTITY="" 2>&1 | tee build/xcodebuild.log
           fi
+
+      - name: Print Xcode Errors on Failure
+        if: failure()
+        run: |
+          echo "=== XCODEBUILD ERROR LOG ==="
+          grep -i -C 2 "error:" build/xcodebuild.log || tail -n 80 build/xcodebuild.log
 
       - name: Package IPA File
         run: |
