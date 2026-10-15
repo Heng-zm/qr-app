@@ -16,9 +16,9 @@ public struct ScannerReticleView: View {
         GeometryReader { proxy in
             let w = proxy.size.width
             let h = proxy.size.height
-            let cornerLength: CGFloat = 28
+            let cornerLength: CGFloat = 36
             let lineWidth: CGFloat = 3.5
-            let cornerRadius: CGFloat = 16
+            let cornerRadius: CGFloat = 26
 
             ZStack {
                 // Clean Minimalist Corner Brackets

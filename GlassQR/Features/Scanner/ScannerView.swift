@@ -58,6 +58,12 @@ public struct ScannerView: View {
     // NFC Smart Tag Studio
     @State private var showNFCStudioSheet: Bool = false
 
+    // Geo Location Apple Maps Studio
+    @State private var showMapLocationPicker: Bool = false
+    @State private var geoLatitude: Double = 37.3346
+    @State private var geoLongitude: Double = -122.0090
+    @State private var geoLocationName: String = "Apple Park"
+
     private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
     private let cutoutSize: CGFloat = 260
 
@@ -83,31 +89,8 @@ public struct ScannerView: View {
             )
             .ignoresSafeArea()
 
-            // Clean Dark Frosted Vignette Cutout
-            GeometryReader { proxy in
-                let size = proxy.size
-                let rect = CGRect(
-                    x: (size.width - cutoutSize) / 2,
-                    y: (size.height - cutoutSize) / 2 - 24,
-                    width: cutoutSize,
-                    height: cutoutSize
-                )
-
-                ZStack {
-                    Color.black.opacity(0.48)
-                        .mask {
-                            Rectangle()
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                        .frame(width: rect.width, height: rect.height)
-                                        .position(x: rect.midX, y: rect.midY)
-                                        .blendMode(.destinationOut)
-                                }
-                        }
-                        .allowsHitTesting(false)
-                }
-            }
-            .ignoresSafeArea()
+            // Clean Dark Frosted Vignette Cutout (Pixel-locked with reticle)
+            vignetteCutout
 
             // Tap-to-focus Pulsing Ring
             if showFocusRing, let point = focusPoint {
@@ -118,18 +101,15 @@ public struct ScannerView: View {
                     .transition(.scale.combined(with: .opacity))
             }
 
+            // Central Viewfinder Reticle & Laser (Identical offset and size as cutout)
+            centralViewfinder
+
             // Controls Overlay
             VStack(spacing: 0) {
                 // Top Command Bar
                 topHUD
                     .padding(.top, 14)
-                    .padding(.horizontal, 20)
-
-                Spacer()
-
-                // Center Clean Viewfinder Frame
-                centralViewfinder
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, 16)
 
                 Spacer()
 
@@ -151,10 +131,10 @@ public struct ScannerView: View {
                         .padding(.bottom, 6)
                 }
 
-                // Bottom Minimalist Controls: Zoom & Photo Picker
+                // Bottom Minimalist Controls: Centered Zoom & Quick Tools Platter
                 bottomControls
-                    .padding(.bottom, 76)
-                    .padding(.horizontal, 24)
+                    .padding(.bottom, 78)
+                    .padding(.horizontal, 16)
             }
         }
         .navigationTitle("Scanner")
@@ -193,6 +173,19 @@ public struct ScannerView: View {
                 }
             )
         }
+        .sheet(isPresented: $showMapLocationPicker) {
+            MapLocationPickerView(
+                isPresented: $showMapLocationPicker,
+                latitude: $geoLatitude,
+                longitude: $geoLongitude,
+                locationName: $geoLocationName,
+                onLocationSelected: { lat, lon, name in
+                    let encodedName = name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Dropped Pin"
+                    let mapsURL = "https://maps.apple.com/?ll=\(lat),\(lon)&q=\(encodedName)"
+                    handleDetectedCode(mapsURL, symbology: "Apple Maps Geo")
+                }
+            )
+        }
         .onChange(of: selectedPhotoItem) { _, newItem in
             Task {
                 await analyzePickedPhoto(newItem)
@@ -203,9 +196,9 @@ public struct ScannerView: View {
     // MARK: - UI Subviews
 
     private var topHUD: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             // Minimalist Floating Platter
-            GlassEffectContainer(spacing: 12) {
+            GlassEffectContainer(spacing: 10) {
                 // Torch Button
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
@@ -216,10 +209,10 @@ public struct ScannerView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(isTorchOn ? Color.yellow : Color.white)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.glassCircle)
                 .glassEffectID("torchControl", in: scannerNamespace)
 
-                // Batch Mode Toggle Button
+                // Batch Mode Toggle Button (Uniform Circular Glass Icon)
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                         isBatchMode.toggle()
@@ -228,15 +221,11 @@ public struct ScannerView: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: isBatchMode ? "square.stack.3d.up.fill" : "square.stack.3d.up")
-                            .font(.system(size: 14))
-                        Text(isBatchMode ? "Batch" : "Single")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundStyle(isBatchMode ? Color.cyan : Color.white)
+                    Image(systemName: isBatchMode ? "square.stack.3d.up.fill" : "square.stack.3d.up")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(isBatchMode ? Color.cyan : Color.white)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.glassCircle)
                 .glassEffectID("batchControl", in: scannerNamespace)
 
                 // Quick Settings Button
@@ -247,7 +236,7 @@ public struct ScannerView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.white)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.glassCircle)
                 .glassEffectID("settingsControl", in: scannerNamespace)
 
                 // Camera Flip Button
@@ -260,7 +249,7 @@ public struct ScannerView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.glassCircle)
                 .glassEffectID("flipControl", in: scannerNamespace)
 
                 // Scan History Drawer Button with Counter Badge
@@ -280,7 +269,7 @@ public struct ScannerView: View {
                         }
                     }
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.glassCircle)
                 .glassEffectID("historyControl", in: scannerNamespace)
 
                 // Pause / Resume Button
@@ -293,7 +282,7 @@ public struct ScannerView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(isPaused ? Color.orange : Color.white)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.glassCircle)
                 .glassEffectID("pauseControl", in: scannerNamespace)
             }
 
@@ -358,6 +347,21 @@ public struct ScannerView: View {
         .presentationDetents([.fraction(0.35), .medium])
     }
 
+    private var vignetteCutout: some View {
+        Color.black.opacity(0.48)
+            .mask {
+                Rectangle()
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .frame(width: cutoutSize, height: cutoutSize)
+                            .offset(y: -24)
+                            .blendMode(.destinationOut)
+                    }
+            }
+            .allowsHitTesting(false)
+            .ignoresSafeArea()
+    }
+
     private var centralViewfinder: some View {
         ZStack {
             // Clean Reticle Brackets
@@ -372,6 +376,8 @@ public struct ScannerView: View {
             }
         }
         .frame(width: cutoutSize, height: cutoutSize)
+        .offset(y: -24)
+        .allowsHitTesting(false)
     }
 
     private var batchReviewChip: some View {
@@ -419,8 +425,8 @@ public struct ScannerView: View {
     }
 
     private var bottomControls: some View {
-        HStack(spacing: 14) {
-            // Sleek Segmented Zoom Pill
+        VStack(spacing: 14) {
+            // Sleek Centered Segmented Zoom Pill
             HStack(spacing: 2) {
                 ForEach(zoomPresets, id: \.self) { preset in
                     Button {
@@ -430,8 +436,8 @@ public struct ScannerView: View {
                     } label: {
                         Text("\(Int(preset))x")
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(zoomFactor == preset ? Color.black : Color.white.opacity(0.75))
-                            .frame(width: 38, height: 28)
+                            .foregroundStyle(zoomFactor == preset ? Color.black : Color.white.opacity(0.8))
+                            .frame(width: 40, height: 28)
                             .background {
                                 if zoomFactor == preset {
                                     Capsule().fill(Color.white)
@@ -443,46 +449,126 @@ public struct ScannerView: View {
             .padding(4)
             .glassEffect(.regular.interactive(), in: .capsule)
 
-            // Live Camera Text OCR Button
-            Button {
-                initialOCRText = ""
-                showTextOCRSheet = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "text.viewfinder")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.cyan)
-                    Text("Live OCR")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+            // Quick Tools Platter (4 balanced items, NO text wrap)
+            HStack(spacing: 0) {
+                // Live Camera Text OCR Button
+                toolPlatterButton(
+                    title: "Live OCR",
+                    icon: "text.viewfinder",
+                    tint: Color.cyan
+                ) {
+                    initialOCRText = ""
+                    showTextOCRSheet = true
                 }
-            }
-            .buttonStyle(.glass)
 
-            // NFC Smart Studio Button
-            Button {
-                showNFCStudioSheet = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "wave.3.forward.circle.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.green)
-                    Text("NFC")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                // Apple Maps Geo Location Studio Button
+                toolPlatterButton(
+                    title: "Geo Map",
+                    icon: "mappin.and.ellipse",
+                    tint: Color(red: 1.0, green: 0.35, blue: 0.35)
+                ) {
+                    showMapLocationPicker = true
                 }
-            }
-            .buttonStyle(.glass)
 
-            // Photo Library QR Scanner Pill
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                HStack(spacing: 6) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 14, weight: .medium))
-                    Text("Photos")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                // NFC Smart Studio Button
+                toolPlatterButton(
+                    title: "NFC Tag",
+                    icon: "wave.3.forward",
+                    tint: Color(red: 0.3, green: 0.88, blue: 0.5)
+                ) {
+                    showNFCStudioSheet = true
                 }
+
+                // Photo Library QR Scanner
+                photoPlatterButton
             }
-            .buttonStyle(.glass)
+            .padding(.horizontal, 4)
         }
+    }
+
+    private func toolPlatterButton(
+        title: String,
+        icon: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.12))
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.35), Color.white.opacity(0.08)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+                .frame(width: 48, height: 48)
+
+                Text(title)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SquishScaleButtonStyle())
+    }
+
+    private var photoPlatterButton: some View {
+        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.12))
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.35), Color.white.opacity(0.08)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
+
+                    if isAnalyzingPhoto {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.85)
+                    } else {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.75, green: 0.72, blue: 1.0))
+                    }
+                }
+                .frame(width: 48, height: 48)
+
+                Text("Photos")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SquishScaleButtonStyle())
     }
 
     private var simulatorTestChip: some View {
@@ -495,6 +581,11 @@ public struct ScannerView: View {
 
                 Button("Wi-Fi") {
                     handleDetectedCode("WIFI:S:ApplePark_Guest;T:WPA;P:LiquidGlass2026;;")
+                }
+                .buttonStyle(.glass)
+
+                Button("Geo Map") {
+                    handleDetectedCode("https://maps.apple.com/?ll=37.3346,-122.0090&q=Apple%20Park", symbology: "Apple Maps")
                 }
                 .buttonStyle(.glass)
 

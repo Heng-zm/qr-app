@@ -20,10 +20,17 @@ public struct ReplayOnboardingButton: View {
                 hasCompletedOnboarding = false
             }
         } label: {
-            Label("Replay Welcome", systemImage: "sparkles")
-                .labelStyle(.iconOnly)
+            Image(systemName: "sparkles")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.92))
+                .frame(width: 32, height: 32)
+                .background {
+                    Circle()
+                        .fill(Color.white.opacity(0.14))
+                        .overlay(Circle().stroke(Color.white.opacity(0.24), lineWidth: 0.75))
+                }
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.plain)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticCount)
         .help("Replay Liquid Glass Welcome Screen")
     }

@@ -133,8 +133,12 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Supports all standard symbologies: **QR Code**, **EAN-13**, **EAN-8**, **UPC-E**, **Code 128**, **Code 39**, **Code 93**, **Data Matrix**, **PDF417**, and **Aztec**.
   - **Instant Audio Chime**: Subtle confirmation sound effect and haptic response on code recognition.
   - **One-Tap Product Lookups**: Instant Google and Amazon search buttons for retail product barcodes.
+  - **Apple Maps Geo Location Studio (`MapLocationPickerView`)**: Dedicated Geo tool in scanner quick tools allowing users to drop pins on Apple Maps, geocode locations, inspect GPS coordinates, and scan or generate location codes.
+  - **Ergonomic Quick Tools Platter**: Center-aligned floating zoom pill (`1x | 2x | 3x`) and 4 balanced quick tools (`Live OCR`, `Geo Map`, `NFC Tag`, `Photos`) with zero text wrapping or distortion across all iPhone screen sizes.
+  - **Pixel-Locked Viewfinder Reticle**: Subpixel-aligned camera cutout and reticle brackets sharing identical coordinate offsets and continuous squircle curvature.
+  - **Uniform Circular Glass Controls**: Top HUD buttons and navigation bar items use `.buttonStyle(.glassCircle)` to ensure consistent circular proportions without vertical stretching.
   - Thread-safe camera capture running on a dedicated serial background queue with tap-to-focus and optical zoom.
-  - Automatic detection of simulator/preview environments with interactive bypass testing chips.
+  - Automatic detection of simulator/preview environments with interactive bypass testing chips (including Apple Maps Geo simulation).
 
 ### 3. Glass AI Copilot & Multi-Modal Security Agent 🧠✨
 - **Multi-Modal Vision & Photo OCR Inspection**:

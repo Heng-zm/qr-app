@@ -231,6 +231,67 @@ public extension ButtonStyle where Self == GlassButtonStyle {
     static var glassProminent: GlassButtonStyle { GlassButtonStyle(isProminent: true) }
 }
 
+/// Native iOS 26 Circular Liquid Glass Button Style for toolbars and quick tool docks
+public struct GlassCircleButtonStyle: ButtonStyle {
+    public let size: CGFloat
+    public let isProminent: Bool
+
+    public init(size: CGFloat = 42, isProminent: Bool = false) {
+        self.size = size
+        self.isProminent = isProminent
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isProminent ? Color.black : Color.white)
+            .frame(width: size, height: size)
+            .background {
+                if isProminent {
+                    Circle()
+                        .fill(Color.white.opacity(configuration.isPressed ? 0.85 : 0.98))
+                        .overlay(Circle().stroke(Color.white.opacity(0.4), lineWidth: 1))
+                        .shadow(color: Color.white.opacity(0.3), radius: 8)
+                } else {
+                    Circle()
+                        .fill(Color.white.opacity(configuration.isPressed ? 0.22 : 0.12))
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.35), Color.white.opacity(0.08)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: Color.black.opacity(0.2), radius: 6, x: 0, y: 3)
+                }
+            }
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
+    }
+}
+
+public extension ButtonStyle where Self == GlassCircleButtonStyle {
+    static var glassCircle: GlassCircleButtonStyle { GlassCircleButtonStyle() }
+    static func glassCircle(size: CGFloat = 42, isProminent: Bool = false) -> GlassCircleButtonStyle {
+        GlassCircleButtonStyle(size: size, isProminent: isProminent)
+    }
+}
+
+/// Tactile spring damping scale button style for quick tools and floating controls
+public struct SquishScaleButtonStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.91 : 1.0)
+            .animation(.spring(response: 0.26, dampingFraction: 0.72), value: configuration.isPressed)
+    }
+}
+
+
 // MARK: - Multi-Pass Liquid Glass Composite Rendering Engine
 
 private struct NativeLiquidGlassModifier: ViewModifier {
