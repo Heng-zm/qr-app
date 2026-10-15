@@ -494,7 +494,7 @@ public struct ScanResultSheetView: View {
                     }
                     .buttonStyle(.glassProminent)
                 } else {
-                    ShareLink(item: result.payload, preview: SharePreview(name)) {
+                    ShareLink(item: result.payload, preview: SharePreview(Text(name))) {
                         Label("Share Contact", systemImage: "square.and.arrow.up")
                             .frame(maxWidth: .infinity)
                     }

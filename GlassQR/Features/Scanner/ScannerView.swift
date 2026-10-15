@@ -41,6 +41,7 @@ public struct ScannerView: View {
     @State private var showBatchHUD: Bool = false
     @State private var batchHUDMessage: String = ""
     @State private var showHistorySheet: Bool = false
+    @State private var showSettingsSheet: Bool = false
     @AppStorage("glassqr_scan_history") private var scanHistoryData: String = "[]"
 
     // Photo Library Picker
@@ -162,6 +163,9 @@ public struct ScannerView: View {
             )
             .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showSettingsSheet) {
+            settingsSheet
+        }
         .onChange(of: selectedPhotoItem) { _, newItem in
             Task {
                 await analyzePickedPhoto(newItem)
@@ -208,10 +212,9 @@ public struct ScannerView: View {
                 .buttonStyle(.glass)
                 .glassEffectID("batchControl", in: scannerNamespace)
 
-                // Quick Settings Menu
-                Menu {
-                    Toggle("Auto-Copy on Scan", isOn: $autoCopyOnScan)
-                    Toggle("Haptic Feedback", isOn: $hapticsEnabled)
+                // Quick Settings Button
+                Button {
+                    showSettingsSheet = true
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 14, weight: .semibold))
@@ -287,6 +290,44 @@ public struct ScannerView: View {
         if isPaused { return "Scanner Paused" }
         if isBatchMode { return "Batch Mode (\(batchScanCount) Scanned)" }
         return "Point at QR Code"
+    }
+
+    private var settingsSheet: some View {
+        NavigationStack {
+            ZStack {
+                Color(red: 0.07, green: 0.07, blue: 0.09)
+                    .ignoresSafeArea()
+
+                List {
+                    Section {
+                        Toggle("Auto-Copy on Scan", isOn: $autoCopyOnScan)
+                        Toggle("Haptic Feedback", isOn: $hapticsEnabled)
+                    } header: {
+                        Text("Preferences")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.5))
+                    } footer: {
+                        Text("When Auto-Copy is active, scanned codes are copied to your clipboard instantly.")
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .listRowBackground(Color.white.opacity(0.06))
+                }
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showSettingsSheet = false
+                    }
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                }
+            }
+        }
+        .presentationDetents([.fraction(0.35), .medium])
     }
 
     private var centralViewfinder: some View {

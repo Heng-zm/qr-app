@@ -38,7 +38,8 @@ public final class CrispQRRenderer: @unchecked Sendable {
 
         let finalCIImage = falseColorFilter?.outputImage ?? scaledImage
 
-        guard let cgImage = context.createCGImage(finalCIImage, from: finalCIImage.extent) else {
+        // Use scaledImage.extent to ensure finite render bounds
+        guard let cgImage = context.createCGImage(finalCIImage, from: scaledImage.extent) else {
             return nil
         }
         let baseQR = UIImage(cgImage: cgImage)
