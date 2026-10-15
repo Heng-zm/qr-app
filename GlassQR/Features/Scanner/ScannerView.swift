@@ -2,7 +2,7 @@
 //  ScannerView.swift
 //  GlassQR
 //
-//  Optimized Scanner Interface with Batch Mode, History Search, & CSV Export
+//  Optimized Scanner Interface with Batch Mode, History Search, Categorization & CSV Export
 //
 
 import SwiftUI
@@ -13,6 +13,10 @@ import CoreImage
 public struct ScannerView: View {
     @Binding var hasCompletedOnboarding: Bool
     @Namespace private var scannerNamespace
+
+    // Preferences
+    @AppStorage("glassqr_auto_copy") private var autoCopyOnScan: Bool = false
+    @AppStorage("glassqr_haptics_enabled") private var hapticsEnabled: Bool = true
 
     // Scan Mode: Single (pops sheet) vs Batch (saves and keeps scanning)
     @State private var isBatchMode: Bool = false
@@ -118,6 +122,12 @@ public struct ScannerView: View {
 
                 Spacer()
 
+                // Batch Mode Active Floating Chip
+                if isBatchMode && batchScanCount > 0 {
+                    batchReviewChip
+                        .padding(.bottom, 8)
+                }
+
                 // Transient Batch Scan Toast
                 if showBatchHUD {
                     batchToast
@@ -182,6 +192,9 @@ public struct ScannerView: View {
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                         isBatchMode.toggle()
+                        if !isBatchMode {
+                            batchScanCount = 0
+                        }
                     }
                 } label: {
                     HStack(spacing: 4) {
@@ -194,6 +207,18 @@ public struct ScannerView: View {
                 }
                 .buttonStyle(.glass)
                 .glassEffectID("batchControl", in: scannerNamespace)
+
+                // Quick Settings Menu
+                Menu {
+                    Toggle("Auto-Copy on Scan", isOn: $autoCopyOnScan)
+                    Toggle("Haptic Feedback", isOn: $hapticsEnabled)
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.glass)
+                .glassEffectID("settingsControl", in: scannerNamespace)
 
                 // Camera Flip Button
                 Button {
@@ -280,6 +305,31 @@ public struct ScannerView: View {
         .frame(width: cutoutSize, height: cutoutSize)
     }
 
+    private var batchReviewChip: some View {
+        Button {
+            showHistorySheet = true
+        } label: {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.cyan)
+                    .frame(width: 7, height: 7)
+
+                Text("Batch: \(batchScanCount) captured")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Color.black.opacity(0.7)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+        }
+        .transition(.scale.combined(with: .opacity))
+    }
+
     private var batchToast: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
@@ -338,30 +388,42 @@ public struct ScannerView: View {
     }
 
     private var simulatorTestChip: some View {
-        HStack(spacing: 8) {
-            Button("URL") {
-                handleDetectedCode("https://apple.com/visionos")
-            }
-            .buttonStyle(.glass)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Button("URL") {
+                    handleDetectedCode("https://apple.com/visionos")
+                }
+                .buttonStyle(.glass)
 
-            Button("Wi-Fi") {
-                handleDetectedCode("WIFI:S:ApplePark_Guest;T:WPA;P:LiquidGlass2026;;")
-            }
-            .buttonStyle(.glass)
+                Button("Wi-Fi") {
+                    handleDetectedCode("WIFI:S:ApplePark_Guest;T:WPA;P:LiquidGlass2026;;")
+                }
+                .buttonStyle(.glass)
 
-            Button("Email") {
-                handleDetectedCode("mailto:developer@apple.com")
-            }
-            .buttonStyle(.glass)
+                Button("Contact") {
+                    handleDetectedCode("BEGIN:VCARD\nVERSION:3.0\nFN:Craig Federighi\nTEL:+15551234567\nEMAIL:craig@apple.com\nORG:Apple Inc.\nEND:VCARD")
+                }
+                .buttonStyle(.glass)
 
-            Button("Note") {
-                handleDetectedCode("GlassQR: Ultra-clean minimal interface")
+                Button("SMS") {
+                    handleDetectedCode("SMSTO:+15551234567:Let us meet at Infinite Loop!")
+                }
+                .buttonStyle(.glass)
+
+                Button("Email") {
+                    handleDetectedCode("mailto:developer@apple.com")
+                }
+                .buttonStyle(.glass)
+
+                Button("Note") {
+                    handleDetectedCode("GlassQR: Ultra-clean minimal interface")
+                }
+                .buttonStyle(.glass)
             }
-            .buttonStyle(.glass)
+            .padding(.horizontal, 10)
         }
         .controlSize(.small)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .glassEffect()
     }
 
@@ -380,14 +442,23 @@ public struct ScannerView: View {
 
         lastScannedPayload = code
         lastScannedTimestamp = now
-        scanFeedbackTrigger += 1
+
+        if hapticsEnabled {
+            scanFeedbackTrigger += 1
+        }
+
+        if autoCopyOnScan {
+            UIPasteboard.general.string = code
+        }
+
         let item = ScanResultItem(payload: code)
         saveToHistory(item)
 
         if isBatchMode {
             // Batch Mode: Keep scanning and show lightweight toast
             batchScanCount += 1
-            batchHUDMessage = "Saved: \(code.prefix(24))..."
+            let prefix = autoCopyOnScan ? "Copied: " : "Saved: "
+            batchHUDMessage = "\(prefix)\(code.prefix(22))..."
             withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                 showBatchHUD = true
             }
@@ -461,13 +532,25 @@ public struct ScannerView: View {
     }
 }
 
-// MARK: - Searchable Scan History Sheet with CSV Export
+// MARK: - Searchable & Categorized Scan History Sheet with CSV Export
 
 private struct ScanHistoryView: View {
     @Binding var historyData: String
     let onSelectResult: (ScanResultItem) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    private enum HistoryCategoryFilter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case links = "Links"
+        case wifi = "Wi-Fi"
+        case contacts = "Contacts"
+        case sms = "SMS"
+        case text = "Text"
+
+        var id: String { rawValue }
+    }
+
+    @State private var selectedFilter: HistoryCategoryFilter = .all
     @State private var searchText: String = ""
 
     var allItems: [ScanResultItem] {
@@ -479,12 +562,30 @@ private struct ScanHistoryView: View {
     }
 
     var filteredItems: [ScanResultItem] {
-        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return allItems
+        var items = allItems
+
+        // Apply category filter
+        switch selectedFilter {
+        case .all: break
+        case .links:
+            items = items.filter { if case .webURL = $0.category { return true }; return false }
+        case .wifi:
+            items = items.filter { if case .wifi = $0.category { return true }; return false }
+        case .contacts:
+            items = items.filter { if case .contact = $0.category { return true }; return false }
+        case .sms:
+            items = items.filter { if case .sms = $0.category { return true }; return false }
+        case .text:
+            items = items.filter { if case .text = $0.category { return true }; return false }
         }
-        return allItems.filter {
-            $0.payload.localizedCaseInsensitiveContains(searchText)
+
+        // Apply search query
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            items = items.filter { $0.payload.localizedCaseInsensitiveContains(query) }
         }
+
+        return items
     }
 
     var exportedCSV: String {
@@ -502,55 +603,78 @@ private struct ScanHistoryView: View {
                 Color(red: 0.06, green: 0.06, blue: 0.08)
                     .ignoresSafeArea()
 
-                if allItems.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 40, weight: .light))
-                            .foregroundStyle(.white.opacity(0.25))
-
-                        Text("No Scan History")
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.55))
+                VStack(spacing: 0) {
+                    // Category Filter Pills
+                    if !allItems.isEmpty {
+                        categoryFilterBar
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
                     }
-                } else {
-                    List {
-                        ForEach(filteredItems) { item in
-                            Button {
-                                dismiss()
-                                onSelectResult(item)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: iconFor(item))
-                                        .font(.system(size: 16, weight: .medium))
-                                        .foregroundStyle(.white.opacity(0.85))
-                                        .frame(width: 28)
 
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(item.payload)
-                                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                                            .foregroundStyle(.white)
-                                            .lineLimit(1)
+                    if allItems.isEmpty {
+                        Spacer()
+                        VStack(spacing: 10) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 40, weight: .light))
+                                .foregroundStyle(.white.opacity(0.25))
 
-                                        Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.system(size: 11, design: .rounded))
-                                            .foregroundStyle(.white.opacity(0.45))
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.white.opacity(0.25))
-                                }
-                                .padding(.vertical, 3)
-                            }
-                            .listRowBackground(Color.white.opacity(0.05))
+                            Text("No Scan History")
+                                .font(.system(size: 15, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.55))
                         }
-                        .onDelete(perform: deleteItem)
+                        Spacer()
+                    } else if filteredItems.isEmpty {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundStyle(.white.opacity(0.25))
+
+                            Text("No matching items found")
+                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                        Spacer()
+                    } else {
+                        List {
+                            ForEach(filteredItems) { item in
+                                Button {
+                                    dismiss()
+                                    onSelectResult(item)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: iconFor(item))
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundStyle(.white.opacity(0.85))
+                                            .frame(width: 28)
+
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(item.payload)
+                                                .font(.system(size: 14, weight: .medium, design: .rounded))
+                                                .foregroundStyle(.white)
+                                                .lineLimit(1)
+
+                                            Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                                .font(.system(size: 11, design: .rounded))
+                                                .foregroundStyle(.white.opacity(0.45))
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(.white.opacity(0.25))
+                                    }
+                                    .padding(.vertical, 3)
+                                }
+                                .listRowBackground(Color.white.opacity(0.05))
+                            }
+                            .onDelete(perform: deleteItem)
+                        }
+                        .scrollContentBackground(.hidden)
                     }
-                    .scrollContentBackground(.hidden)
-                    .searchable(text: $searchText, prompt: "Search scanned codes...")
                 }
+                .searchable(text: $searchText, prompt: "Search scanned codes...")
             }
             .navigationTitle("History (\(allItems.count))")
             .navigationBarTitleDisplayMode(.inline)
@@ -589,6 +713,33 @@ private struct ScanHistoryView: View {
         }
     }
 
+    private var categoryFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(HistoryCategoryFilter.allCases) { filter in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                            selectedFilter = filter
+                        }
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(selectedFilter == filter ? Color.black : Color.white.opacity(0.75))
+                            .background {
+                                if selectedFilter == filter {
+                                    Capsule().fill(Color.white)
+                                } else {
+                                    Capsule().fill(Color.white.opacity(0.08))
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
     private func deleteItem(at offsets: IndexSet) {
         var list = allItems
         list.remove(atOffsets: offsets)
@@ -604,6 +755,9 @@ private struct ScanHistoryView: View {
         case .wifi: return "wifi"
         case .email: return "envelope"
         case .phone: return "phone"
+        case .sms: return "message.fill"
+        case .contact: return "person.crop.circle"
+        case .geo: return "map.fill"
         case .text: return "doc.text"
         }
     }

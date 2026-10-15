@@ -24,6 +24,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>GlassQR requires camera access to scan QR codes with the live Liquid Glass viewfinder.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GlassQR needs access to your photos to scan QR codes from your library.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>GlassQR needs permission to save generated QR codes to your photo library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

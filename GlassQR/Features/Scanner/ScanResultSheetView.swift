@@ -74,6 +74,15 @@ public struct ScanResultSheetView: View {
                     case .phone(let number):
                         phoneCard(number: number)
 
+                    case .sms(let number, let message):
+                        smsCard(number: number, message: message)
+
+                    case .contact(let name, let phone, let email, let org):
+                        contactCard(name: name, phone: phone, email: email, org: org)
+
+                    case .geo(let lat, let lon, _):
+                        geoCard(latitude: lat, longitude: lon)
+
                     case .text(let text):
                         textCard(text: text)
                     }
@@ -221,6 +230,99 @@ public struct ScanResultSheetView: View {
     }
 
     @ViewBuilder
+    private func smsCard(number: String, message: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SMS TEXT")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.45))
+
+            Text(number)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            if let msg = message, !msg.isEmpty {
+                Text(msg)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+        )
+    }
+
+    @ViewBuilder
+    private func contactCard(name: String, phone: String?, email: String?, org: String?) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CONTACT VCARD")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.45))
+
+            Text(name)
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+
+            if let org = org, !org.isEmpty {
+                Text(org)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            if let phone = phone, !phone.isEmpty {
+                Label(phone, systemImage: "phone.fill")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+
+            if let email = email, !email.isEmpty {
+                Label(email, systemImage: "envelope.fill")
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+        )
+    }
+
+    @ViewBuilder
+    private func geoCard(latitude: Double, longitude: Double) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("GEOLOCATION COORDINATES")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.45))
+
+            Text(String(format: "%.4f° N, %.4f° W", latitude, longitude))
+                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.09), lineWidth: 1)
+                )
+        )
+    }
+
+    @ViewBuilder
     private func textCard(text: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -348,6 +450,80 @@ public struct ScanResultSheetView: View {
                 }
             }
 
+        case .sms(let number, let message):
+            HStack(spacing: 12) {
+                Button {
+                    copyToClipboard(number)
+                } label: {
+                    Label(copied ? "Copied" : "Copy Number", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+
+                let bodyParam = message?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                let smsStr = bodyParam.isEmpty ? "sms:\(number)" : "sms:\(number)&body=\(bodyParam)"
+                if let smsURL = URL(string: smsStr) {
+                    Button {
+                        openURL(smsURL)
+                        dismiss()
+                    } label: {
+                        Label("Send SMS", systemImage: "message.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            }
+
+        case .contact(let name, let phone, _, _):
+            HStack(spacing: 12) {
+                Button {
+                    copyToClipboard(result.payload)
+                } label: {
+                    Label(copied ? "Copied" : "Copy vCard", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+
+                if let phone = phone, let telURL = URL(string: "tel:\(phone.replacingOccurrences(of: " ", with: ""))") {
+                    Button {
+                        openURL(telURL)
+                        dismiss()
+                    } label: {
+                        Label("Call \(name)", systemImage: "phone.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                } else {
+                    ShareLink(item: result.payload, preview: SharePreview(name)) {
+                        Label("Share Contact", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            }
+
+        case .geo(let lat, let lon, _):
+            HStack(spacing: 12) {
+                Button {
+                    copyToClipboard("\(lat), \(lon)")
+                } label: {
+                    Label(copied ? "Copied" : "Copy Coords", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+
+                if let mapURL = URL(string: "https://maps.apple.com/?ll=\(lat),\(lon)&q=\(lat),\(lon)") {
+                    Button {
+                        openURL(mapURL)
+                        dismiss()
+                    } label: {
+                        Label("Open Maps", systemImage: "map.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            }
+
         case .text(let text):
             HStack(spacing: 12) {
                 Button {
@@ -387,6 +563,9 @@ public struct ScanResultSheetView: View {
         case .wifi: return "wifi"
         case .email: return "envelope"
         case .phone: return "phone"
+        case .sms: return "message.fill"
+        case .contact: return "person.crop.circle"
+        case .geo: return "map.fill"
         case .text: return "doc.text"
         }
     }
@@ -397,6 +576,9 @@ public struct ScanResultSheetView: View {
         case .wifi: return "Wi-Fi Network"
         case .email: return "Email Address"
         case .phone: return "Phone Number"
+        case .sms: return "SMS Message"
+        case .contact: return "Contact vCard"
+        case .geo: return "Map Coordinates"
         case .text: return "Text Payload"
         }
     }
