@@ -2,11 +2,14 @@
 //  ScannerReticleView.swift
 //  GlassQR
 //
+//  Futuristic iOS 26 Liquid Glass Optical Reticle
+//
 
 import SwiftUI
 
 public struct ScannerReticleView: View {
     @State private var pulse: Bool = false
+    @State private var radarRotation: Double = 0
 
     public init() {}
 
@@ -14,68 +17,123 @@ public struct ScannerReticleView: View {
         GeometryReader { proxy in
             let w = proxy.size.width
             let h = proxy.size.height
-            let length: CGFloat = 32
-            let thickness: CGFloat = 4.5
+            let bracketLength: CGFloat = 36
+            let bracketThickness: CGFloat = 4.5
 
             ZStack {
-                // Outer Bracket Path
+                // Subtle Optical Radar Sweep Gradient
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [.clear, .cyan.opacity(0.15), .clear],
+                            center: .center
+                        ),
+                        lineWidth: 1
+                    )
+                    .frame(width: w * 0.85, height: h * 0.85)
+                    .rotationEffect(.degrees(radarRotation))
+
+                // Corner Glass Lensing Brackets
                 Path { path in
-                    // Top Left
-                    path.move(to: CGPoint(x: 0, y: length))
+                    // Top Left Bracket
+                    path.move(to: CGPoint(x: 0, y: bracketLength))
                     path.addLine(to: CGPoint(x: 0, y: 0))
-                    path.addLine(to: CGPoint(x: length, y: 0))
+                    path.addLine(to: CGPoint(x: bracketLength, y: 0))
 
-                    // Top Right
-                    path.move(to: CGPoint(x: w - length, y: 0))
+                    // Top Right Bracket
+                    path.move(to: CGPoint(x: w - bracketLength, y: 0))
                     path.addLine(to: CGPoint(x: w, y: 0))
-                    path.addLine(to: CGPoint(x: w, y: length))
+                    path.addLine(to: CGPoint(x: w, y: bracketLength))
 
-                    // Bottom Left
-                    path.move(to: CGPoint(x: 0, y: h - length))
+                    // Bottom Left Bracket
+                    path.move(to: CGPoint(x: 0, y: h - bracketLength))
                     path.addLine(to: CGPoint(x: 0, y: h))
-                    path.addLine(to: CGPoint(x: length, y: h))
+                    path.addLine(to: CGPoint(x: bracketLength, y: h))
 
-                    // Bottom Right
-                    path.move(to: CGPoint(x: w - length, y: h))
+                    // Bottom Right Bracket
+                    path.move(to: CGPoint(x: w - bracketLength, y: h))
                     path.addLine(to: CGPoint(x: w, y: h))
-                    path.addLine(to: CGPoint(x: w, y: h - length))
+                    path.addLine(to: CGPoint(x: w, y: h - bracketLength))
                 }
                 .stroke(
                     LinearGradient(
-                        colors: [.cyan, .white, .indigo],
+                        colors: [
+                            Color(red: 0.1, green: 0.85, blue: 1.0),
+                            Color.white,
+                            Color(red: 0.6, green: 0.3, blue: 1.0)
+                        ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    style: StrokeStyle(lineWidth: thickness, lineCap: .round, lineJoin: .round)
+                    style: StrokeStyle(lineWidth: bracketThickness, lineCap: .round, lineJoin: .round)
                 )
-                .shadow(color: .cyan.opacity(pulse ? 0.8 : 0.4), radius: pulse ? 12 : 6, x: 0, y: 0)
+                .shadow(color: .cyan.opacity(pulse ? 0.9 : 0.4), radius: pulse ? 14 : 7, x: 0, y: 0)
 
-                // Corner Optical Nodes
+                // Corner Glowing Sapphire Nodes
                 Group {
-                    Circle().fill(Color.white).frame(width: 5, height: 5).position(x: 0, y: 0)
-                    Circle().fill(Color.white).frame(width: 5, height: 5).position(x: w, y: 0)
-                    Circle().fill(Color.white).frame(width: 5, height: 5).position(x: 0, y: h)
-                    Circle().fill(Color.white).frame(width: 5, height: 5).position(x: w, y: h)
+                    bracketCornerNode(x: 0, y: 0)
+                    bracketCornerNode(x: w, y: 0)
+                    bracketCornerNode(x: 0, y: h)
+                    bracketCornerNode(x: w, y: h)
                 }
-                .shadow(color: .cyan, radius: 4)
 
-                // Center Subtle Glass Crosshairs
-                Path { path in
-                    let cx = w / 2
-                    let cy = h / 2
-                    let r: CGFloat = 10
-                    path.move(to: CGPoint(x: cx - r, y: cy))
-                    path.addLine(to: CGPoint(x: cx + r, y: cy))
-                    path.move(to: CGPoint(x: cx, y: cy - r))
-                    path.addLine(to: CGPoint(x: cx, y: cy + r))
+                // Center Holographic Optical Reticle
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        .frame(width: 24, height: 24)
+
+                    Circle()
+                        .fill(Color.cyan.opacity(pulse ? 0.6 : 0.3))
+                        .frame(width: 4, height: 4)
+
+                    // Crosshair Ticks
+                    Path { path in
+                        let cx = w / 2
+                        let cy = h / 2
+                        let gap: CGFloat = 16
+                        let tick: CGFloat = 8
+
+                        // Top
+                        path.move(to: CGPoint(x: cx, y: cy - gap - tick))
+                        path.addLine(to: CGPoint(x: cx, y: cy - gap))
+                        // Bottom
+                        path.move(to: CGPoint(x: cx, y: cy + gap))
+                        path.addLine(to: CGPoint(x: cx, y: cy + gap + tick))
+                        // Left
+                        path.move(to: CGPoint(x: cx - gap - tick, y: cy))
+                        path.addLine(to: CGPoint(x: cx - gap, y: cy))
+                        // Right
+                        path.move(to: CGPoint(x: cx + gap, y: cy))
+                        path.addLine(to: CGPoint(x: cx + gap + tick, y: cy))
+                    }
+                    .stroke(Color.white.opacity(0.4), lineWidth: 1.5)
                 }
-                .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
             }
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
                 pulse = true
             }
+            withAnimation(.linear(duration: 6.0).repeatForever(autoreverses: false)) {
+                radarRotation = 360
+            }
         }
+    }
+
+    @ViewBuilder
+    private func bracketCornerNode(x: CGFloat, y: CGFloat) -> some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [.white, .cyan],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 4
+                )
+            )
+            .frame(width: 6, height: 6)
+            .shadow(color: .cyan, radius: 6)
+            .position(x: x, y: y)
     }
 }

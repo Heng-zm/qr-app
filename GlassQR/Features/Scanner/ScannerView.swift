@@ -2,6 +2,8 @@
 //  ScannerView.swift
 //  GlassQR
 //
+//  iOS 26 Liquid Glass Optical Scanner Interface
+//
 
 import SwiftUI
 import PhotosUI
@@ -32,9 +34,10 @@ public struct ScannerView: View {
     // Photo Library Picker
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var isAnalyzingPhoto: Bool = false
-    @State private var photoScanAlertMessage: String? = nil
+    @State private var showSimulatorDrawer: Bool = false
 
-    private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
+    private let zoomPresets: [CGFloat] = [0.5, 1.0, 2.0, 3.0]
+    private let viewfinderSize: CGFloat = 270
 
     public init(hasCompletedOnboarding: Binding<Bool>) {
         self._hasCompletedOnboarding = hasCompletedOnboarding
@@ -42,7 +45,7 @@ public struct ScannerView: View {
 
     public var body: some View {
         ZStack {
-            // Live Camera View with Tap-to-Focus & Zoom
+            // Live Camera Feed Layer
             CameraEngineRepresentable(
                 isTorchOn: $isTorchOn,
                 isPaused: $isPaused,
@@ -58,39 +61,76 @@ public struct ScannerView: View {
             )
             .ignoresSafeArea()
 
-            // Tap-to-focus Pulsing Ring Overlay
+            // Cinematic Frosted Vignette with Viewfinder Cutout
+            GeometryReader { proxy in
+                let size = proxy.size
+                let rect = CGRect(
+                    x: (size.width - viewfinderSize) / 2,
+                    y: (size.height - viewfinderSize) / 2 - 20,
+                    width: viewfinderSize,
+                    height: viewfinderSize
+                )
+
+                ZStack {
+                    // Dark ambient frosted glass mask outside cutout
+                    Color.black.opacity(0.42)
+                        .mask {
+                            Rectangle()
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                                        .frame(width: rect.width, height: rect.height)
+                                        .position(x: rect.midX, y: rect.midY)
+                                        .blendMode(.destinationOut)
+                                }
+                        }
+                        .allowsHitTesting(false)
+                }
+            }
+            .ignoresSafeArea()
+
+            // Tap-to-focus Pulsing Liquid Glass Ring
             if showFocusRing, let point = focusPoint {
-                Circle()
-                    .stroke(Color.cyan, lineWidth: 2)
-                    .frame(width: 68, height: 68)
-                    .shadow(color: .cyan, radius: 8)
-                    .position(point)
-                    .transition(.scale.combined(with: .opacity))
+                ZStack {
+                    Circle()
+                        .stroke(Color.cyan, lineWidth: 2)
+                        .frame(width: 64, height: 64)
+                        .shadow(color: .cyan, radius: 10)
+
+                    Circle()
+                        .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                        .frame(width: 48, height: 48)
+
+                    Circle()
+                        .fill(Color.cyan)
+                        .frame(width: 4, height: 4)
+                }
+                .position(point)
+                .transition(.scale.combined(with: .opacity))
             }
 
-            // Scanner Interface Overlays
-            VStack(spacing: 16) {
-                // Top Floating HUD inside GlassEffectContainer
-                topHUD
-                    .padding(.top, 16)
-
-                // Floating Guidance Pill
-                guidancePill
+            // Foreground UI Controls Overlay
+            VStack(spacing: 0) {
+                // Top Floating Command Platter
+                topCommandBar
+                    .padding(.top, 14)
+                    .padding(.horizontal, 20)
 
                 Spacer()
 
-                // Central Liquid Glass Viewfinder Overlay
-                centralViewfinder
-
-                Spacer()
-
-                // Bottom Controls: Zoom Platter & Photo Picker
-                bottomControls
+                // Center Holographic Viewfinder Region
+                centralViewfinderFrame
                     .padding(.bottom, 20)
 
-                // Simulator / Preview Fallback Multi-Tool
+                Spacer()
+
+                // Bottom Liquid Glass Controls (Zoom + Photos)
+                bottomControlsBar
+                    .padding(.bottom, 24)
+                    .padding(.horizontal, 24)
+
+                // Expandable Simulator Testing Platter
                 if isSimulatedSession {
-                    simulatorTestConsole
+                    simulatorTestingConsole
                         .padding(.bottom, 12)
                 }
             }
@@ -118,163 +158,228 @@ public struct ScannerView: View {
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - UI Components
 
-    private var topHUD: some View {
-        GlassEffectContainer(spacing: 14) {
-            // Torch / Flashlight Toggle
-            Button {
-                isTorchOn.toggle()
-            } label: {
-                Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(isTorchOn ? .yellow : .white)
-            }
-            .buttonStyle(.glass)
-            .glassEffectID("torchControl", in: scannerNamespace)
-
-            // Camera Flip (Front / Back)
-            Button {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
-                    cameraPosition = (cameraPosition == .back) ? .front : .back
+    private var topCommandBar: some View {
+        VStack(spacing: 12) {
+            // Primary Control Platter
+            GlassEffectContainer(spacing: 14) {
+                // Torch Button with Glowing Active State
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        isTorchOn.toggle()
+                    }
+                } label: {
+                    Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(isTorchOn ? Color.yellow : Color.white)
+                        .symbolEffect(.bounce, value: isTorchOn)
                 }
-            } label: {
-                Image(systemName: "camera.rotate.fill")
-                    .font(.system(size: 16, weight: .semibold))
-            }
-            .buttonStyle(.glass)
-            .glassEffectID("flipControl", in: scannerNamespace)
-
-            // Scan History Drawer
-            Button {
-                showHistorySheet = true
-            } label: {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 16, weight: .semibold))
-            }
-            .buttonStyle(.glass)
-            .glassEffectID("historyControl", in: scannerNamespace)
-
-            // Pause / Resume Toggle
-            Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
-                    isPaused.toggle()
+                .buttonStyle(.glass)
+                .background {
+                    if isTorchOn {
+                        Circle()
+                            .fill(Color.yellow.opacity(0.25))
+                            .blur(radius: 10)
+                    }
                 }
-            } label: {
-                Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                .glassEffectID("torchControl", in: scannerNamespace)
+
+                // Camera Flip (Rear / Front)
+                Button {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                        cameraPosition = (cameraPosition == .back) ? .front : .back
+                    }
+                } label: {
+                    Image(systemName: "camera.rotate.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.glass)
+                .glassEffectID("flipControl", in: scannerNamespace)
+
+                // Scan History Drawer Button with Counter Badge
+                Button {
+                    showHistorySheet = true
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+
+                        let count = historyCount
+                        if count > 0 {
+                            Circle()
+                                .fill(Color.cyan)
+                                .frame(width: 8, height: 8)
+                                .offset(x: 4, y: -4)
+                        }
+                    }
+                }
+                .buttonStyle(.glass)
+                .glassEffectID("historyControl", in: scannerNamespace)
+
+                // Scanner Pause / Resume Toggle
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.78)) {
+                        isPaused.toggle()
+                    }
+                } label: {
+                    Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(isPaused ? Color.orange : Color.white)
+                }
+                .buttonStyle(.glass)
+                .glassEffectID("pauseControl", in: scannerNamespace)
             }
-            .buttonStyle(.glass)
-            .glassEffectID("pauseControl", in: scannerNamespace)
+
+            // Status Lensing Pill
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(isPaused ? Color.orange : Color.green)
+                    .frame(width: 7, height: 7)
+                    .shadow(color: isPaused ? .orange : .green, radius: 4)
+
+                Text(isPaused ? "SCANNER PAUSED" : "OPTICAL ENGINE READY")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.88))
+                    .tracking(1.2)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 7)
+            .glassEffect()
         }
     }
 
-    private var guidancePill: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(isPaused ? Color.orange : Color.green)
-                .frame(width: 8, height: 8)
-
-            Text(isPaused ? "Scanner Paused" : "Align QR Code Inside Glass Frame")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.9))
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 8)
-        .glassEffect()
-    }
-
-    private var centralViewfinder: some View {
+    private var centralViewfinderFrame: some View {
         ZStack {
-            // Floating Viewfinder Frame
+            // Specular Glass Border Frame
             RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .stroke(Color.white.opacity(0.35), lineWidth: 1.5)
-                .frame(width: 270, height: 270)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.4),
+                            Color.cyan.opacity(0.3),
+                            Color.white.opacity(0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
+                .frame(width: viewfinderSize, height: viewfinderSize)
                 .glassEffect(.clear, in: .rect(cornerRadius: 32))
 
-            // Specular Reticle Brackets
+            // Holographic Optical Reticle with Radar Sweep
             ScannerReticleView()
-                .frame(width: 270, height: 270)
+                .frame(width: viewfinderSize, height: viewfinderSize)
 
-            // Animated Refractive Laser
+            // Radiant Dual-Core Scanning Laser
             if !isPaused {
                 ScanningLaserView()
-                    .frame(width: 250, height: 270)
+                    .frame(width: viewfinderSize - 20, height: viewfinderSize)
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             }
         }
+        .frame(width: viewfinderSize, height: viewfinderSize)
     }
 
-    private var bottomControls: some View {
+    private var bottomControlsBar: some View {
         HStack(spacing: 16) {
-            // Zoom Selector Platter
-            HStack(spacing: 8) {
+            // Segmented Liquid Glass Zoom Capsule
+            HStack(spacing: 4) {
                 ForEach(zoomPresets, id: \.self) { preset in
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                             zoomFactor = preset
                         }
                     } label: {
-                        Text("\(Int(preset))x")
+                        Text(preset == 0.5 ? ".5x" : "\(Int(preset))x")
                             .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundStyle(zoomFactor == preset ? .cyan : .white.opacity(0.7))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .foregroundStyle(zoomFactor == preset ? .cyan : .white.opacity(0.72))
+                            .frame(minWidth: 38, minHeight: 32)
                             .background {
                                 if zoomFactor == preset {
-                                    Capsule().fill(Color.white.opacity(0.2))
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.18))
+                                        .shadow(color: Color.black.opacity(0.2), radius: 4)
                                 }
                             }
                     }
                 }
             }
-            .padding(6)
+            .padding(4)
             .glassEffect(.regular.interactive(), in: .capsule)
 
-            // Photo Library QR Scanner Button
+            // Photo Library QR Scanner Pill
             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                Label("Photos", systemImage: "photo.on.rectangle.angled")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                HStack(spacing: 8) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Photos")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                }
             }
             .buttonStyle(.glass)
         }
     }
 
-    private var simulatorTestConsole: some View {
+    private var simulatorTestingConsole: some View {
         VStack(spacing: 8) {
-            Text("Preview Simulation Presets")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.55))
-
-            HStack(spacing: 10) {
-                Button("Web URL") {
-                    handleDetectedCode("https://apple.com/visionos")
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    showSimulatorDrawer.toggle()
                 }
-                .buttonStyle(.glass)
-
-                Button("Wi-Fi") {
-                    handleDetectedCode("WIFI:S:ApplePark_Liquid;T:WPA;P:SwiftUI2026;;")
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(.cyan)
+                    Text("Simulator Test Payloads")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                    Image(systemName: showSimulatorDrawer ? "chevron.down" : "chevron.up")
+                        .font(.system(size: 10, weight: .bold))
                 }
-                .buttonStyle(.glass)
-
-                Button("Email") {
-                    handleDetectedCode("mailto:developer@apple.com")
-                }
-                .buttonStyle(.glass)
-
-                Button("Text") {
-                    handleDetectedCode("Liquid Glass iOS 26 Design System Active")
-                }
-                .buttonStyle(.glass)
+                .foregroundStyle(.white.opacity(0.85))
             }
-            .controlSize(.small)
+            .buttonStyle(.glass)
+
+            if showSimulatorDrawer {
+                HStack(spacing: 8) {
+                    Button("URL") {
+                        handleDetectedCode("https://apple.com/visionos")
+                    }
+                    .buttonStyle(.glass)
+
+                    Button("Wi-Fi") {
+                        handleDetectedCode("WIFI:S:ApplePark_Liquid;T:WPA;P:SwiftUI2026;;")
+                    }
+                    .buttonStyle(.glass)
+
+                    Button("Email") {
+                        handleDetectedCode("mailto:developer@apple.com")
+                    }
+                    .buttonStyle(.glass)
+
+                    Button("Note") {
+                        handleDetectedCode("Liquid Glass iOS 26 Scanner Active")
+                    }
+                    .buttonStyle(.glass)
+                }
+                .controlSize(.small)
+                .transition(.scale.combined(with: .opacity))
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
     }
 
-    // MARK: - Logic & Scanning Methods
+    // MARK: - Helper Methods
+
+    private var historyCount: Int {
+        guard let data = scanHistoryData.data(using: .utf8),
+              let list = try? JSONDecoder().decode([ScanResultItem].self, from: data) else {
+            return 0
+        }
+        return list.count
+    }
 
     private func handleDetectedCode(_ code: String) {
         guard activeScanResult == nil else { return }
