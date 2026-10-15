@@ -33,41 +33,40 @@ public struct MainGlassTabView: View {
 
     public var body: some View {
         ZStack(alignment: .bottom) {
-            // Persistent Tab View Hierarchy (prevents camera resets and state churn)
-            ZStack {
-                NavigationStack {
-                    GeneratorView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
+            // Main Content Area with smooth transitions
+            Group {
+                switch selectedTab {
+                case .generator:
+                    NavigationStack {
+                        GeneratorView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarTrailing) {
+                                    ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
+                                }
                             }
-                        }
-                }
-                .opacity(selectedTab == .generator ? 1 : 0)
-                .allowsHitTesting(selectedTab == .generator)
-                .accessibilityHidden(selectedTab != .generator)
+                    }
+                    .transition(.opacity)
 
-                NavigationStack {
-                    ScannerView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
+                case .scanner:
+                    NavigationStack {
+                        ScannerView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                            .toolbar {
+                                ToolbarItem(placement: .topBarTrailing) {
+                                    ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
+                                }
                             }
-                        }
+                    }
+                    .transition(.opacity)
                 }
-                .opacity(selectedTab == .scanner ? 1 : 0)
-                .allowsHitTesting(selectedTab == .scanner)
-                .accessibilityHidden(selectedTab != .scanner)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.easeInOut(duration: 0.22), value: selectedTab)
 
             // Native iOS 26 Liquid Glass Floating Bottom Navigation Bar
             GlassEffectContainer(spacing: 12) {
                 liquidGlassBottomNavBar
             }
             .padding(.horizontal, 24)
-            .padding(.bottom, 16)
+            .padding(.bottom, 12)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
@@ -101,8 +100,8 @@ public struct MainGlassTabView: View {
                 Text(tab.rawValue)
                     .font(.system(size: 13, weight: selectedTab == tab ? .bold : .semibold, design: .rounded))
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 11)
+            .frame(width: 114)
+            .padding(.vertical, 10)
             .foregroundStyle(
                 selectedTab == tab
                     ? Color(red: 0.05, green: 0.05, blue: 0.08)
@@ -127,8 +126,8 @@ public struct MainGlassTabView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.98),
-                        Color.white.opacity(0.90)
+                        Color.white.opacity(0.96),
+                        Color.white.opacity(0.88)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -140,17 +139,16 @@ public struct MainGlassTabView: View {
                         LinearGradient(
                             colors: [
                                 Color.white,
-                                Color.white.opacity(0.55),
-                                Color.white.opacity(0.85)
+                                Color.white.opacity(0.4)
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            startPoint: .top,
+                            endPoint: .bottom
                         ),
-                        lineWidth: 1
+                        lineWidth: 0.75
                     )
             )
-            .shadow(color: Color.white.opacity(0.40), radius: 10, x: 0, y: 2)
-            .shadow(color: Color.cyan.opacity(0.25), radius: 14, x: 0, y: 0)
+            .shadow(color: Color.black.opacity(0.18), radius: 8, x: 0, y: 3)
+            .shadow(color: Color.white.opacity(0.25), radius: 4, x: 0, y: 0)
             .glassEffectID("selectedTabMorphPill", in: bottomNavNamespace)
     }
 }
