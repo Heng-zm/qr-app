@@ -109,8 +109,10 @@ jobs:
       - name: Print Xcode Errors on Failure
         if: failure()
         run: |
-          echo "=== XCODEBUILD ERROR LOG ==="
-          grep -i -C 2 "error:" build/xcodebuild.log || tail -n 80 build/xcodebuild.log
+          echo "### Xcode Build Errors" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          (grep -i -C 2 "error:" build/xcodebuild.log || tail -n 80 build/xcodebuild.log) >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Package IPA File
         run: |
