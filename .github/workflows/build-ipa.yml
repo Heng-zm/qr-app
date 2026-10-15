@@ -1,0 +1,154 @@
+name: Build iPhone IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build Configuration (Release or Debug)'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+
+jobs:
+  build-ipa:
+    name: Build GlassQR IPA
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode Version
+        run: |
+          echo "Available Xcode installations:"
+          ls -d /Applications/Xcode*.app || true
+          
+          # Prioritize Xcode 16.x or latest Xcode installed on runner
+          if [ -d "/Applications/Xcode_16.1.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.1.app
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          else
+            sudo xcode-select -s /Applications/Xcode.app
+          fi
+          
+          xcodebuild -version
+
+      - name: Set Up Keychain & Provisioning (If Secrets Provided)
+        id: setup_signing
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'github-actions-temp' }}
+        run: |
+          if [ -n "$BUILD_CERTIFICATE_BASE64" ] && [ -n "$BUILD_PROVISION_PROFILE_BASE64" ]; then
+            echo "has_signing=true" >> "$GITHUB_OUTPUT"
+            echo "==> Configuring Apple Developer signing certificates..."
+
+            # Create temporary keychain
+            KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+            # Import certificate into keychain
+            CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+            echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+            security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+            security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+            # Install Provisioning Profile
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+            echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          else
+            echo "has_signing=false" >> "$GITHUB_OUTPUT"
+            echo "==> No signing secrets detected. Building unsigned / sideload-ready IPA."
+          fi
+
+      - name: Build Xcode Archive
+        id: build_archive
+        run: |
+          mkdir -p build
+          CONFIG="${{ inputs.configuration || 'Release' }}"
+          echo "Building archive with configuration: $CONFIG"
+
+          if [ "${{ steps.setup_signing.outputs.has_signing }}" = "true" ]; then
+            xcodebuild archive \
+              -project GlassQR.xcodeproj \
+              -scheme GlassQR \
+              -configuration "$CONFIG" \
+              -destination 'generic/platform=iOS' \
+              -archivePath build/GlassQR.xcarchive \
+              -allowProvisioningUpdates
+          else
+            xcodebuild archive \
+              -project GlassQR.xcodeproj \
+              -scheme GlassQR \
+              -configuration "$CONFIG" \
+              -destination 'generic/platform=iOS' \
+              -archivePath build/GlassQR.xcarchive \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY=""
+          fi
+
+      - name: Package IPA File
+        run: |
+          mkdir -p build/output
+
+          if [ "${{ steps.setup_signing.outputs.has_signing }}" = "true" ]; then
+            # Create export options plist for signed distribution
+            cat << 'EOF' > build/ExportOptions.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>stripSwiftSymbols</key>
+              <true/>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
+            xcodebuild -exportArchive \
+              -archivePath build/GlassQR.xcarchive \
+              -exportOptionsPlist build/ExportOptions.plist \
+              -exportPath build/output \
+              -allowProvisioningUpdates
+
+            # Find generated IPA
+            mv build/output/*.ipa build/output/GlassQR.ipa 2>/dev/null || true
+          else
+            # Package unsigned/ad-hoc IPA via standard Payload structure for sideloading
+            echo "Packaging sideloadable IPA (Payload/GlassQR.app)..."
+            mkdir -p build/Payload
+            cp -R build/GlassQR.xcarchive/Products/Applications/GlassQR.app build/Payload/
+            cd build
+            zip -r -q output/GlassQR.ipa Payload
+            cd ..
+          fi
+
+          echo "IPA Package generated at:"
+          ls -lh build/output/GlassQR.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GlassQR-iOS-IPA
+          path: build/output/GlassQR.ipa
+          retention-days: 14
+          if-no-files-found: error
