@@ -807,7 +807,7 @@ public struct ScannerView: View {
            let observations = barcodeRequest.results,
            let firstBarcode = observations.first,
            let payload = firstBarcode.payloadStringValue {
-            let symbology = CameraViewController.humanReadableSymbology(for: firstBarcode.symbology)
+            let symbology = Self.humanReadableSymbology(for: firstBarcode.symbology)
             await MainActor.run {
                 handleDetectedCode(payload, symbology: symbology)
             }
@@ -829,6 +829,23 @@ public struct ScannerView: View {
                     showTextOCRSheet = true
                 }
             }
+        }
+    }
+
+    private static func humanReadableSymbology(for symbology: VNBarcodeSymbology) -> String {
+        switch symbology {
+        case .qr: return "QR Code"
+        case .ean13: return "EAN-13"
+        case .ean8: return "EAN-8"
+        case .upce: return "UPC-E"
+        case .code128: return "Code 128"
+        case .code39: return "Code 39"
+        case .code93: return "Code 93"
+        case .dataMatrix: return "Data Matrix"
+        case .pdf417: return "PDF417"
+        case .aztec: return "Aztec"
+        case .microQR: return "Micro QR"
+        default: return "Barcode"
         }
     }
 }

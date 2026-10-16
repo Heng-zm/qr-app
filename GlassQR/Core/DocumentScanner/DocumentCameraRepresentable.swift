@@ -249,14 +249,17 @@ final class SimulatedDocumentScannerViewController: UIViewController, PHPickerVi
         guard !results.isEmpty else { return }
 
         let dispatchGroup = DispatchGroup()
+        let lock = NSLock()
         var loadedImages: [UIImage] = []
 
         for result in results {
             dispatchGroup.enter()
-            result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+            result.itemProvider.loadObject(ofClass: UIImage.self) { object, _ in
                 defer { dispatchGroup.leave() }
                 if let image = object as? UIImage {
+                    lock.lock()
                     loadedImages.append(image)
+                    lock.unlock()
                 }
             }
         }
