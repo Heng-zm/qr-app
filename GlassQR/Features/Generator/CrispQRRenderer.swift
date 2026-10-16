@@ -37,6 +37,10 @@ public enum QRErrorCorrectionLevel: String, CaseIterable, Identifiable, Sendable
         case .high: return "High (30%)"
         }
     }
+
+    public var label: String {
+        rawValue
+    }
 }
 
 // MARK: - Liquid Dot Module Shapes

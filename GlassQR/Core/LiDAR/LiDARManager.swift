@@ -147,19 +147,22 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
         // 2. Fallback to Raycast if depthMap unavailable
         if extractedDistance == nil {
             let centerPoint = CGPoint(x: 0.5, y: 0.5)
-            let raycastResults = frame.raycast(from: centerPoint, allowing: .estimatedPlane, alignment: .any)
-            if let first = raycastResults.first {
-                let cameraTransform = frame.camera.transform
-                let camPos = SIMD3<Float>(cameraTransform.columns.3.x, cameraTransform.columns.3.y, cameraTransform.columns.3.z)
-                let targetPos = SIMD3<Float>(first.worldTransform.columns.3.x, first.worldTransform.columns.3.y, first.worldTransform.columns.3.z)
-                extractedDistance = Double(simd_distance(camPos, targetPos))
+            if let query = frame.raycastQuery(from: centerPoint, allowing: .estimatedPlane, alignment: .any) {
+                let raycastResults = session.raycast(query)
+                if let first = raycastResults.first {
+                    let cameraTransform = frame.camera.transform
+                    let camPos = SIMD3<Float>(cameraTransform.columns.3.x, cameraTransform.columns.3.y, cameraTransform.columns.3.z)
+                    let targetPos = SIMD3<Float>(first.worldTransform.columns.3.x, first.worldTransform.columns.3.y, first.worldTransform.columns.3.z)
+                    extractedDistance = Double(simd_distance(camPos, targetPos))
 
-                // Estimate surface tilt from plane normal
-                let normal = SIMD3<Float>(first.worldTransform.columns.1.x, first.worldTransform.columns.1.y, first.worldTransform.columns.1.z)
-                let camForward = -SIMD3<Float>(cameraTransform.columns.2.x, cameraTransform.columns.2.y, cameraTransform.columns.2.z)
-                let dotProd = abs(simd_dot(normal, camForward))
-                let angleRad = acos(min(1.0, max(0.0, dotProd)))
-                surfaceTiltDegrees = Double(angleRad * 180.0 / .pi)
+                    // Estimate surface tilt from plane normal
+                    let normal = SIMD3<Float>(first.worldTransform.columns.1.x, first.worldTransform.columns.1.y, first.worldTransform.columns.1.z)
+                    let camForward = -SIMD3<Float>(cameraTransform.columns.2.x, cameraTransform.columns.2.y, cameraTransform.columns.2.z)
+                    let dotProd = abs(simd_dot(normal, camForward))
+                    let clampedDot = min(Float(1.0), max(Float(0.0), dotProd))
+                    let angleRad = acos(clampedDot)
+                    surfaceTiltDegrees = Double(angleRad * 180.0 / Float.pi)
+                }
             }
         }
 
@@ -185,7 +188,7 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
                 self.estimatedPhysicalHeightCm = self.estimatedPhysicalWidthCm
 
                 // Point cloud count
-                if let rawPoints = frame.rawFeaturePoints?.points {
+                if let rawPoints = frame.rawFeaturePoints {
                     self.pointCloudDensity = rawPoints.count * 12 + 8500
                 }
             }
