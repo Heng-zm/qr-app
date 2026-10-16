@@ -435,11 +435,13 @@ public struct ScanResultSheetView: View {
             }
 
             // Interactive Dropped Pin Map Container
-            Map(coordinateRegion: .constant(MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            let pinCoord = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            Map(initialPosition: .region(MKCoordinateRegion(
+                center: pinCoord,
                 span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
-            )), annotationItems: [MapPinItem(coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))]) { pin in
-                MapMarker(coordinate: pin.coordinate, tint: .red)
+            ))) {
+                Marker(label ?? "Location", coordinate: pinCoord)
+                    .tint(.red)
             }
             .frame(height: 140)
             .clipShape(RoundedRectangle(cornerRadius: 14))

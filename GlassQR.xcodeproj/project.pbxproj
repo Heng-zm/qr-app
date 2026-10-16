@@ -37,6 +37,8 @@
 		1B0000280000000000000028 /* SteganographicQREngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000290000000000000029 /* SteganographicQREngine.swift */; };
 		1B0000290000000000000029 /* SecretVaultUnlockSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000300000000000000030 /* SecretVaultUnlockSheetView.swift */; };
 		1B0000300000000000000030 /* MapLocationPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000310000000000000031 /* MapLocationPickerView.swift */; };
+		1B0000310000000000000031 /* DocumentCameraRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000320000000000000032 /* DocumentCameraRepresentable.swift */; };
+		1B0000320000000000000032 /* DocumentScannerSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000330000000000000033 /* DocumentScannerSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -72,6 +74,8 @@
 		1A0000290000000000000029 /* SteganographicQREngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SteganographicQREngine.swift; sourceTree = "<group>"; };
 		1A0000300000000000000030 /* SecretVaultUnlockSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretVaultUnlockSheetView.swift; sourceTree = "<group>"; };
 		1A0000310000000000000031 /* MapLocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationPickerView.swift; sourceTree = "<group>"; };
+		1A0000320000000000000032 /* DocumentCameraRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCameraRepresentable.swift; sourceTree = "<group>"; };
+		1A0000330000000000000033 /* DocumentScannerSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,8 +146,17 @@
 				1C0000190000000000000019 /* Translation */,
 				1C0000200000000000000020 /* NFC */,
 				1C0000230000000000000023 /* Crypto */,
+				1C0000240000000000000024 /* DocumentScanner */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		1C0000240000000000000024 /* DocumentScanner */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000320000000000000032 /* DocumentCameraRepresentable.swift */,
+			);
+			path = DocumentScanner;
 			sourceTree = "<group>";
 		};
 		1C0000230000000000000023 /* Crypto */ = {
@@ -277,6 +290,7 @@
 				1A0000150000000000000015 /* ScannerView.swift */,
 				1A0000240000000000000024 /* TextOCRSheetView.swift */,
 				1A0000300000000000000030 /* SecretVaultUnlockSheetView.swift */,
+				1A0000330000000000000033 /* DocumentScannerSheetView.swift */,
 			);
 			path = Scanner;
 			sourceTree = "<group>";
@@ -397,6 +411,8 @@
 				1B0000280000000000000028 /* SteganographicQREngine.swift in Sources */,
 				1B0000290000000000000029 /* SecretVaultUnlockSheetView.swift in Sources */,
 				1B0000300000000000000030 /* MapLocationPickerView.swift in Sources */,
+				1B0000310000000000000031 /* DocumentCameraRepresentable.swift in Sources */,
+				1B0000320000000000000032 /* DocumentScannerSheetView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

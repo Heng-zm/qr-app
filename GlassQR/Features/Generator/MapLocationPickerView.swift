@@ -433,15 +433,20 @@ public struct MapLocationPickerView: View {
             let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
             isReverseGeocoding = true
 
-            CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
-                DispatchQueue.main.async {
+            do {
+                let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
+                await MainActor.run {
                     self.isReverseGeocoding = false
-                    if let p = placemarks?.first {
+                    if let p = placemarks.first {
                         let parts = [p.name, p.thoroughfare, p.locality, p.administrativeArea].compactMap { $0 }
                         if !parts.isEmpty {
                             self.reverseGeocodedAddress = parts.joined(separator: ", ")
                         }
                     }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isReverseGeocoding = false
                 }
             }
         }
