@@ -67,6 +67,9 @@ public struct ScannerView: View {
     @State private var geoLongitude: Double = -122.0090
     @State private var geoLocationName: String = "Apple Park"
 
+    // LiDAR Laser Rangefinder & AR Night Depth Scanner
+    @State private var showLiDARScannerSheet: Bool = false
+
     private let zoomPresets: [CGFloat] = [1.0, 2.0, 3.0]
     private let cutoutSize: CGFloat = 260
 
@@ -195,6 +198,11 @@ public struct ScannerView: View {
                     handleDetectedCode(mapsURL, symbology: "Apple Maps Geo")
                 }
             )
+        }
+        .fullScreenCover(isPresented: $showLiDARScannerSheet) {
+            LiDARScannerView(onCodeScanned: { code, symbology in
+                handleDetectedCode(code, symbology: symbology)
+            })
         }
         .onChange(of: selectedPhotoItem) { _, newItem in
             Task {
@@ -425,6 +433,23 @@ public struct ScannerView: View {
                 }
             }
             .frame(width: cutoutSize, height: cutoutSize)
+
+            // LiDAR TOF Rangefinder Indicator Tag
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color.cyan)
+                    .frame(width: 5, height: 5)
+                Image(systemName: "sensor.fill")
+                    .font(.system(size: 9, weight: .bold))
+                Text("LiDAR TOF")
+                    .font(.system(size: 9, weight: .black, design: .monospaced))
+            }
+            .foregroundStyle(Color.cyan)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Color.black.opacity(0.65), in: Capsule())
+            .overlay(Capsule().stroke(Color.cyan.opacity(0.4), lineWidth: 0.8))
+            .offset(y: (cutoutSize / 2) + 14)
         }
         .offset(y: -24)
         .allowsHitTesting(false)
@@ -477,28 +502,50 @@ public struct ScannerView: View {
 
     private var bottomControls: some View {
         VStack(spacing: 14) {
-            // Sleek Centered Segmented Zoom Pill
-            HStack(spacing: 2) {
-                ForEach(zoomPresets, id: \.self) { preset in
-                    Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                            zoomFactor = preset
-                        }
-                    } label: {
-                        Text("\(Int(preset))x")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(zoomFactor == preset ? Color.black : Color.white.opacity(0.8))
-                            .frame(width: 40, height: 28)
-                            .background {
-                                if zoomFactor == preset {
-                                    Capsule().fill(Color.white)
-                                }
+            // Centered Controls: Segmented Zoom Pill & Dedicated LiDAR 3D Rangefinder Button
+            HStack(spacing: 10) {
+                // Sleek Centered Segmented Zoom Pill
+                HStack(spacing: 2) {
+                    ForEach(zoomPresets, id: \.self) { preset in
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                zoomFactor = preset
                             }
+                        } label: {
+                            Text("\(Int(preset))x")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(zoomFactor == preset ? Color.black : Color.white.opacity(0.8))
+                                .frame(width: 40, height: 28)
+                                .background {
+                                    if zoomFactor == preset {
+                                        Capsule().fill(Color.white)
+                                    }
+                                }
+                        }
                     }
                 }
+                .padding(4)
+                .glassEffect(.regular.interactive(), in: .capsule)
+
+                // Dedicated LiDAR 3D Laser Rangefinder Button
+                Button {
+                    showLiDARScannerSheet = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "sensor.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.cyan)
+                        Text("LiDAR 3D")
+                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .foregroundStyle(Color.white)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(Color.cyan.opacity(0.18), in: Capsule())
+                    .overlay(Capsule().stroke(Color.cyan.opacity(0.55), lineWidth: 1))
+                    .shadow(color: Color.cyan.opacity(0.35), radius: 8, x: 0, y: 2)
+                }
             }
-            .padding(4)
-            .glassEffect(.regular.interactive(), in: .capsule)
 
             // Quick Tools Platter (5 balanced items, NO text wrap)
             HStack(spacing: 0) {
