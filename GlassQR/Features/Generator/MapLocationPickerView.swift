@@ -15,6 +15,7 @@ public struct MapLocationPickerView: View {
     @State private var searchResults: [MKMapItem] = []
     @State private var reverseGeocodedAddress: String = ""
     @State private var isReverseGeocoding: Bool = false
+    @State private var geocodeTask: Task<Void, Never>? = nil
 
     private let locationManager = CLLocationManager()
 
@@ -101,6 +102,9 @@ public struct MapLocationPickerView: View {
             }
             .onAppear {
                 reverseGeocodeCenter()
+            }
+            .onDisappear {
+                geocodeTask?.cancel()
             }
         }
         .presentationDetents([.large])
@@ -280,19 +284,26 @@ public struct MapLocationPickerView: View {
     }
 
     private func debounceReverseGeocode() {
-        NSObject.cancelPreviousPerformRequests(withTarget: self)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        geocodeTask?.cancel()
+        geocodeTask = Task {
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
             reverseGeocodeCenter()
         }
     }
 
     private func reverseGeocodeCenter() {
-        let location = CLLocation(latitude: region.center.latitude, longitude: region.center.longitude)
+        let lat = region.center.latitude
+        let lon = region.center.longitude
+        let location = CLLocation(latitude: lat, longitude: lon)
+        isReverseGeocoding = true
+
         CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
-            if let p = placemarks?.first {
-                let parts = [p.name, p.locality, p.administrativeArea].compactMap { $0 }
-                if !parts.isEmpty {
-                    DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                self.isReverseGeocoding = false
+                if let p = placemarks?.first {
+                    let parts = [p.name, p.locality, p.administrativeArea].compactMap { $0 }
+                    if !parts.isEmpty {
                         self.reverseGeocodedAddress = parts.joined(separator: ", ")
                     }
                 }

@@ -44,84 +44,83 @@ public struct WelcomeView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 32) {
-            Spacer(minLength: 20)
-
-            // Floating Hero Emblem
-            VStack(spacing: 16) {
-                ZStack {
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 64, weight: .bold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.cyan, .white, .indigo],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 28) {
+                // Floating Hero Emblem
+                VStack(spacing: 16) {
+                    ZStack {
+                        Image(systemName: "qrcode")
+                            .font(.system(size: 64, weight: .bold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.cyan, .white, .indigo],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                        .symbolEffect(.breathe, options: .repeating)
-                        .symbolEffect(.bounce, value: emblemBounce)
-                }
-                .frame(width: 110, height: 110)
-                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 36))
-                .onTapGesture {
-                    emblemBounce += 1
-                }
+                            .symbolEffect(.breathe, options: .repeating)
+                            .symbolEffect(.bounce, value: emblemBounce)
+                    }
+                    .frame(width: 110, height: 110)
+                    .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 36))
+                    .onTapGesture {
+                        emblemBounce += 1
+                    }
 
-                VStack(spacing: 6) {
-                    Text("GlassQR")
-                        .font(.system(size: 38, weight: .black, design: .rounded))
-                        .foregroundStyle(.white)
+                    VStack(spacing: 6) {
+                        Text("GlassQR")
+                            .font(.system(size: 38, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
 
-                    Text("The Future of Optical Data Interaction")
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-            }
-            .padding(.top, 16)
-
-            // Staggered Liquid Glass Feature Cards
-            GlassEffectContainer(spacing: 18) {
-                VStack(spacing: 14) {
-                    ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
-                        FeatureCardView(feature: feature)
-                            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24))
-                            .offset(y: cardsAppeared ? 0 : 40)
-                            .opacity(cardsAppeared ? 1 : 0)
-                            .animation(
-                                .spring(response: 0.55, dampingFraction: 0.76).delay(Double(index) * 0.12),
-                                value: cardsAppeared
-                            )
+                        Text("The Future of Optical Data Interaction")
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.7))
                     }
                 }
-            }
-            .padding(.horizontal, 24)
+                .padding(.top, 28)
 
-            Spacer(minLength: 20)
-
-            // Morphing Bottom Call-to-Action Bar
-            GlassEffectContainer(spacing: 16) {
-                Button {
-                    buttonHapticTrigger += 1
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) {
-                        hasCompletedOnboarding = true
+                // Staggered Liquid Glass Feature Cards
+                GlassEffectContainer(spacing: 18) {
+                    VStack(spacing: 14) {
+                        ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
+                            FeatureCardView(feature: feature)
+                                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 24))
+                                .offset(y: cardsAppeared ? 0 : 40)
+                                .opacity(cardsAppeared ? 1 : 0)
+                                .animation(
+                                    .spring(response: 0.55, dampingFraction: 0.76).delay(Double(index) * 0.12),
+                                    value: cardsAppeared
+                                )
+                        }
                     }
-                } label: {
-                    HStack(spacing: 12) {
-                        Text("Get Started")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 16, weight: .bold))
-                            .symbolEffect(.bounce, value: buttonHapticTrigger)
-                    }
-                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent)
-                .controlSize(.extraLarge)
-                .glassEffectID("welcomeCTA", in: welcomeNamespace)
+                .padding(.horizontal, 24)
+
+                // Morphing Bottom Call-to-Action Bar
+                GlassEffectContainer(spacing: 16) {
+                    Button {
+                        buttonHapticTrigger += 1
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) {
+                            hasCompletedOnboarding = true
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text("Get Started")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 16, weight: .bold))
+                                .symbolEffect(.bounce, value: buttonHapticTrigger)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.extraLarge)
+                    .glassEffectID("welcomeCTA", in: welcomeNamespace)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .padding(.bottom, 36)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 36)
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: buttonHapticTrigger)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: emblemBounce)

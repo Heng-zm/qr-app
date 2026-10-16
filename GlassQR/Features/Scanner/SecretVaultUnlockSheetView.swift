@@ -255,15 +255,28 @@ public struct SecretVaultUnlockSheetView: View {
 
     private func attemptBiometricUnlock() async {
         let success = await SteganographicQREngine.authenticateDeviceOwner()
-        if success {
-            // If user previously set passcode or attempts default
-            if !passcode.isEmpty {
-                attemptUnlock()
+        await MainActor.run {
+            if success {
+                if !passcode.isEmpty {
+                    attemptUnlock()
+                } else if let secret = try? SteganographicQREngine.decrypt(
+                    encryptedPayload: encryptedPayload,
+                    passcode: "2026"
+                ) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        decryptedSecret = secret
+                        isUnlocked = true
+                        passcode = "2026"
+                    }
+                    onDecryptedText?(secret)
+                    startCountdown()
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } else {
+                    errorMessage = "Face ID verified. Please enter the vault passcode."
+                }
             } else {
-                errorMessage = "Please enter the vault passcode to complete decryption."
+                errorMessage = "Biometric authentication failed or was cancelled."
             }
-        } else {
-            errorMessage = "Biometric authentication failed."
         }
     }
 
@@ -271,10 +284,12 @@ public struct SecretVaultUnlockSheetView: View {
         countdownRemaining = 30
         countdownTimer?.invalidate()
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            if countdownRemaining > 1 {
-                countdownRemaining -= 1
-            } else {
-                lockAndWipe()
+            DispatchQueue.main.async {
+                if self.countdownRemaining > 1 {
+                    self.countdownRemaining -= 1
+                } else {
+                    self.lockAndWipe()
+                }
             }
         }
     }

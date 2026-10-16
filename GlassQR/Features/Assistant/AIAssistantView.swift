@@ -230,7 +230,7 @@ public struct AIAssistantView: View {
 
                     // Spacer for bottom input and nav clearance
                     Spacer()
-                        .frame(height: isEmbeddedInTab ? 140 : 80)
+                        .frame(height: isEmbeddedInTab ? (isInputFocused ? 70 : 130) : (isInputFocused ? 70 : 80))
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)

@@ -27,6 +27,7 @@ public struct MainGlassTabView: View {
     }
 
     @State private var selectedTab: TabItem = .generator
+    @State private var isKeyboardVisible: Bool = false
     @Namespace private var bottomNavNamespace
 
     public init(hasCompletedOnboarding: Binding<Bool>) {
@@ -41,47 +42,44 @@ public struct MainGlassTabView: View {
                 case .generator:
                     NavigationStack {
                         GeneratorView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarTrailing) {
-                                    ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
-                                }
-                            }
                     }
                     .transition(.opacity)
 
                 case .scanner:
                     NavigationStack {
                         ScannerView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarTrailing) {
-                                    ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
-                                }
-                            }
                     }
                     .transition(.opacity)
 
                 case .assistant:
                     NavigationStack {
                         AIAssistantView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarTrailing) {
-                                    ReplayOnboardingButton(hasCompletedOnboarding: $hasCompletedOnboarding)
-                                }
-                            }
                     }
                     .transition(.opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Native iOS 26 Liquid Glass Floating Bottom Navigation Bar
-            GlassEffectContainer(spacing: 12) {
-                liquidGlassBottomNavBar
+            // Native iOS 26 Liquid Glass Floating Bottom Navigation Bar (hides while keyboard is active)
+            if !isKeyboardVisible {
+                GlassEffectContainer(spacing: 12) {
+                    liquidGlassBottomNavBar
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                isKeyboardVisible = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                isKeyboardVisible = false
+            }
+        }
     }
 
     // MARK: - Native iOS 26 Liquid Glass Bottom Nav

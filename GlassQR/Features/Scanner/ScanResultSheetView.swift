@@ -36,145 +36,147 @@ public struct ScanResultSheetView: View {
             Color(red: 0.07, green: 0.07, blue: 0.09)
                 .ignoresSafeArea()
 
-            VStack(spacing: 20) {
-                // Drag Handle
-                Capsule()
-                    .fill(Color.white.opacity(0.25))
-                    .frame(width: 36, height: 4.5)
-                    .padding(.top, 10)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 18) {
+                    // Drag Handle
+                    Capsule()
+                        .fill(Color.white.opacity(0.25))
+                        .frame(width: 36, height: 4.5)
+                        .padding(.top, 10)
 
-                // Header
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.08))
-                            .frame(width: 42, height: 42)
+                    // Header
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.08))
+                                .frame(width: 42, height: 42)
 
-                        Image(systemName: iconName)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text(titleText)
-                                .font(.system(size: 17, weight: .bold, design: .rounded))
+                            Image(systemName: iconName)
+                                .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(.white)
-
-                            Text(result.symbology)
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2.5)
-                                .background(Capsule().fill(Color.white.opacity(0.12)))
-                                .foregroundStyle(.white.opacity(0.75))
                         }
 
-                        Text(result.timestamp.formatted(date: .abbreviated, time: .shortened))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.5))
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(titleText)
+                                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.white)
+
+                                Text(result.symbology)
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2.5)
+                                    .background(Capsule().fill(Color.white.opacity(0.12)))
+                                    .foregroundStyle(.white.opacity(0.75))
+                            }
+
+                            Text(result.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+
+                        Spacer()
                     }
+                    .padding(.horizontal, 20)
 
-                    Spacer()
-                }
-                .padding(.horizontal, 24)
+                    // Clean Content Card
+                    VStack(spacing: 12) {
+                        switch result.category {
+                        case .wifi(let ssid, let password, let security):
+                            wifiCard(ssid: ssid, password: password, security: security)
 
-                // Clean Content Card
-                VStack(spacing: 12) {
-                    switch result.category {
-                    case .wifi(let ssid, let password, let security):
-                        wifiCard(ssid: ssid, password: password, security: security)
+                        case .webURL(let url):
+                            urlCard(url: url)
 
-                    case .webURL(let url):
-                        urlCard(url: url)
+                        case .email(let address, _, _):
+                            emailCard(address: address)
 
-                    case .email(let address, _, _):
-                        emailCard(address: address)
+                        case .phone(let number):
+                            phoneCard(number: number)
 
-                    case .phone(let number):
-                        phoneCard(number: number)
+                        case .sms(let number, let message):
+                            smsCard(number: number, message: message)
 
-                    case .sms(let number, let message):
-                        smsCard(number: number, message: message)
+                        case .contact(let name, let phone, let email, let org):
+                            contactCard(name: name, phone: phone, email: email, org: org)
 
-                    case .contact(let name, let phone, let email, let org):
-                        contactCard(name: name, phone: phone, email: email, org: org)
+                        case .geo(let lat, let lon, let label):
+                            geoCard(latitude: lat, longitude: lon, label: label)
 
-                    case .geo(let lat, let lon, let label):
-                        geoCard(latitude: lat, longitude: lon, label: label)
+                        case .encryptedVault(let ciphertext, let decoyURL):
+                            vaultCard(ciphertext: ciphertext, decoyURL: decoyURL)
 
-                    case .encryptedVault(let ciphertext, let decoyURL):
-                        vaultCard(ciphertext: ciphertext, decoyURL: decoyURL)
+                        case .productBarcode(let code, let format):
+                            productBarcodeCard(code: code, format: format)
 
-                    case .productBarcode(let code, let format):
-                        productBarcodeCard(code: code, format: format)
-
-                    case .text(let text):
-                        textCard(text: text)
+                        case .text(let text):
+                            textCard(text: text)
+                        }
                     }
-                }
-                .padding(.horizontal, 24)
+                    .padding(.horizontal, 20)
 
-                // Clean Action Buttons
-                VStack(spacing: 10) {
-                    actionButtons
+                    // Clean Action Buttons
+                    VStack(spacing: 10) {
+                        actionButtons
 
-                    // AI Assistant Inspector Button
-                    Button {
-                        showAIAssistantSheet = true
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [.cyan, .purple],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                        // AI Assistant Inspector Button
+                        Button {
+                            showAIAssistantSheet = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [.cyan, .purple],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                            Text("Analyze with AI Assistant")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.glass)
-
-                    // Secondary Tools: Translation & NFC Write
-                    HStack(spacing: 10) {
-                        Button {
-                            showTranslationSheet = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "globe")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(Color.cyan)
-                                Text("Translate")
+                                Text("Analyze with AI Assistant")
                                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 38)
                         }
                         .buttonStyle(.glass)
 
-                        Button {
-                            showNFCSheet = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "wave.3.forward.circle.fill")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(Color.green)
-                                Text("Write NFC")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        // Secondary Tools: Translation & NFC Write
+                        HStack(spacing: 10) {
+                            Button {
+                                showTranslationSheet = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "globe")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(Color.cyan)
+                                    Text("Translate")
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 38)
                             }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 38)
+                            .buttonStyle(.glass)
+
+                            Button {
+                                showNFCSheet = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "wave.3.forward.circle.fill")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(Color.green)
+                                    Text("Write NFC")
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 38)
+                            }
+                            .buttonStyle(.glass)
                         }
-                        .buttonStyle(.glass)
                     }
+                    .padding(.horizontal, 20)
+
+                    Spacer(minLength: 28)
                 }
-                .padding(.horizontal, 24)
-
-                Spacer(minLength: 10)
             }
         }
         .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)

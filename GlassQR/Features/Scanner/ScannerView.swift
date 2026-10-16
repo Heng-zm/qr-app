@@ -329,6 +329,32 @@ public struct ScannerView: View {
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .listRowBackground(Color.white.opacity(0.06))
+
+                    Section {
+                        Button {
+                            showSettingsSheet = false
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) {
+                                hasCompletedOnboarding = false
+                            }
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(Color.cyan)
+                                Text("Replay Welcome Tour")
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.4))
+                            }
+                        }
+                    } header: {
+                        Text("App Walkthrough")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .listRowBackground(Color.white.opacity(0.06))
                 }
                 .scrollContentBackground(.hidden)
             }
@@ -344,7 +370,7 @@ public struct ScannerView: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.35), .medium])
+        .presentationDetents([.medium, .large])
     }
 
     private var vignetteCutout: some View {

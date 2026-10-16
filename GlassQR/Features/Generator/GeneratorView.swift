@@ -174,59 +174,67 @@ public struct GeneratorView: View {
                 Spacer(minLength: 88)
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Generator")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                HStack(spacing: 8) {
+                Menu {
                     Button {
                         showOCRScannerSheet = true
                     } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "text.viewfinder")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(Color.cyan)
-                            Text("Live OCR")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                        Label("Live Camera Text OCR", systemImage: "text.viewfinder")
                     }
 
                     Button {
                         showTranslationSheet = true
                     } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "globe")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(Color.cyan)
-                            Text("Translate")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                        Label("Live Translation Studio", systemImage: "globe")
+                    }
+
+                    Button {
+                        showMapLocationPicker = true
+                    } label: {
+                        Label("Apple Maps Geo Pin", systemImage: "mappin.and.ellipse")
                     }
 
                     Button {
                         showNFCSheet = true
                     } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "wave.3.forward.circle.fill")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(Color.green)
-                            Text("NFC")
-                                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.white.opacity(0.08)))
+                        Label("Write to Physical NFC Tag", systemImage: "wave.3.forward.circle.fill")
                     }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.cyan)
+                        Text("Tools")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(0.1)))
+                    .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 0.75))
                 }
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.78)) {
+                        hasCompletedOnboarding = false
+                    }
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                }
+                .help("App Overview & Tour")
             }
         }
         .sheet(isPresented: $showOCRScannerSheet) {
