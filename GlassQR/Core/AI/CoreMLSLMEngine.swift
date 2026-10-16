@@ -496,7 +496,7 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         var name = isKhmer ? "សុខ ពិសិដ្ឋ" : "Alex Rivera"
         var phone = "+855 (12) 888-999"
         var email = "piseth@example.com"
-        var org = isKhmer ? "ស្ទូឌីយោ GlassQR" : "GlassQR Design Studio"
+        let org = isKhmer ? "ស្ទូឌីយោ GlassQR" : "GlassQR Design Studio"
 
         if let nameMatch = prompt.range(of: #"(?:name|ឈ្មោះ)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[nameMatch])
