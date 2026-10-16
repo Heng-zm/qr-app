@@ -35,6 +35,7 @@ public struct AIAssistantView: View {
     @State private var showDocumentScannerSheet: Bool = false
     @State private var showWalletPassSheet: Bool = false
     @State private var walletPassInitialPayload: String = ""
+    @State private var starterLanguage: String = "KM"
 
     var isEmbeddedInTab: Bool
     @FocusState private var isInputFocused: Bool
@@ -329,15 +330,72 @@ public struct AIAssistantView: View {
                     .padding(.horizontal, 24)
             }
 
-            // Quick Starter Chips
-            VStack(spacing: 9) {
-                starterChip(title: "📍 Drop Pin at Tokyo Tower", prompt: "Drop pin on Apple Map for Tokyo Tower, Japan")
-                starterChip(title: "🔐 Encrypt Vault with Passcode", prompt: "Create an encrypted secret vault QR for seed phrase 'apple banana cherry' with passcode 8888")
-                starterChip(title: "🎟️ Generate VIP Wallet Pass", prompt: "Create an Apple Wallet event pass for Cyber Summit 2026")
-                starterChip(title: "⚡ Generate Wi-Fi for 'GuestNet'", prompt: "Generate a Wi-Fi QR code for network 'GuestNet' with password 'Welcome2026!'")
-                starterChip(title: "📇 Create vCard for Alex Chen", prompt: "Create a vCard QR for Alex Chen, VP Engineering, email alex@example.com")
+            // Language Toggle (ភាសាខ្មែរ & English)
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        starterLanguage = "KM"
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text("🇰🇭")
+                        Text("ភាសាខ្មែរ")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule().fill(starterLanguage == "KM" ? Color.cyan.opacity(0.3) : Color.white.opacity(0.06))
+                    )
+                    .overlay(
+                        Capsule().stroke(starterLanguage == "KM" ? Color.cyan : Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .foregroundStyle(.white)
+                }
+
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        starterLanguage = "EN"
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text("🇺🇸")
+                        Text("English")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule().fill(starterLanguage == "EN" ? Color.cyan.opacity(0.3) : Color.white.opacity(0.06))
+                    )
+                    .overlay(
+                        Capsule().stroke(starterLanguage == "EN" ? Color.cyan : Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .foregroundStyle(.white)
+                }
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
+
+            // Quick Starter Chips
+            if starterLanguage == "KM" {
+                VStack(spacing: 9) {
+                    starterChip(title: "💬 សន្ទនាឆ្លើយឆ្លង (ChatGPT / Gemini)", prompt: "សួស្តី! តើអ្នកអាចជួយពន្យល់ពីសុវត្ថិភាព QR Code និងរបៀបប្រើប្រាស់បានទេ?")
+                    starterChip(title: "⚡ បង្កើត QR Wi-Fi សម្រាប់ភ្ញៀវ", prompt: "បង្កើត QR Wi-Fi ឈ្មោះ CafeAngkor លេខសម្ងាត់ Angkor2026")
+                    starterChip(title: "🎟️ បង្កើតកាត Apple Wallet VIP", prompt: "បង្កើតកាត Apple Wallet ឈ្មោះ សុខា កម្មវិធី Tech Summit 2026")
+                    starterChip(title: "🔐 អ៊ិនគ្រីបកំណត់ត្រាសម្ងាត់", prompt: "អ៊ិនគ្រីបកំណត់ត្រាសម្ងាត់ 'កូដសម្ងាត់គណនី' លេខកូដសម្ងាត់ 8888")
+                    starterChip(title: "📍 ទម្លាក់ម្ជុលផែនទីនៅភ្នំពេញ", prompt: "ទម្លាក់ម្ជុលផែនទីនៅ វត្តភ្នំ រាជធានីភ្នំពេញ")
+                }
+                .padding(.top, 4)
+            } else {
+                VStack(spacing: 9) {
+                    starterChip(title: "💬 Conversational Chat (ChatGPT / Gemini)", prompt: "Hello! Can you explain how QR codes work and what makes them secure?")
+                    starterChip(title: "📍 Drop Pin at Tokyo Tower", prompt: "Drop pin on Apple Map for Tokyo Tower, Japan")
+                    starterChip(title: "🔐 Encrypt Vault with Passcode", prompt: "Create an encrypted secret vault QR for seed phrase 'apple banana cherry' with passcode 8888")
+                    starterChip(title: "🎟️ Generate VIP Wallet Pass", prompt: "Create an Apple Wallet event pass for Cyber Summit 2026")
+                    starterChip(title: "⚡ Generate Wi-Fi for 'GuestNet'", prompt: "Generate a Wi-Fi QR code for network 'GuestNet' with password 'Welcome2026!'")
+                }
+                .padding(.top, 4)
+            }
         }
     }
 
@@ -753,7 +811,7 @@ public struct AIAssistantView: View {
                         .background(Circle().fill(Color.white.opacity(0.08)))
                 }
 
-                TextField("Ask AI to generate, analyze, or inspect...", text: $inputText, axis: .vertical)
+                TextField("Ask or converse in English or ភាសាខ្មែរ...", text: $inputText, axis: .vertical)
                     .focused($isInputFocused)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(.white)
@@ -827,7 +885,7 @@ public struct AIAssistantView: View {
             if let img = imageToAnalyze {
                 reply = await engine.analyzeImage(img, prompt: text.isEmpty ? nil : text)
             } else {
-                reply = await engine.processPrompt(text)
+                reply = await engine.processPrompt(text, history: messages)
             }
 
             await MainActor.run {
@@ -964,7 +1022,7 @@ private struct AISettingsSheet: View {
                     .foregroundStyle(.white)
             }
 
-            Text("By default, GlassQR operates a 100% on-device neural engine. No internet or API keys are required for natural language QR creation, Wi-Fi decoding, or safety analysis.\n\nOptionally switch to cloud providers (OpenAI, Gemini, Claude) for extended multi-modal vision and reasoning.")
+            Text("GlassQR operates an intelligent conversational AI Copilot (like ChatGPT & Gemini) with full multi-turn memory and bilingual support for ភាសាខ្មែរ (Khmer) and English.\n\nBy default, it runs 100% on-device on Apple Neural Engine with zero cloud latency. Optionally switch to cloud providers (OpenAI, Gemini, Claude) for extended multi-modal vision.")
                 .font(.system(size: 12, design: .rounded))
                 .foregroundStyle(.white.opacity(0.75))
                 .lineSpacing(3)

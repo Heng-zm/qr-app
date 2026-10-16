@@ -154,6 +154,15 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Automatic detection of simulator/preview environments with interactive bypass testing chips (including Apple Maps Geo simulation).
 
 ### 3. Glass AI Copilot & Multi-Modal Security Agent 🧠✨
+- **Conversational Multi-Turn Dialogue (like ChatGPT & Gemini)**:
+  - **Contextual Memory**: Remembers and references previous questions, answers, and generated payloads across conversation turns.
+  - **General & Technical Q&A**: Answers educational questions about QR codes, Reed-Solomon math, NFC protocols, PassKit, and mobile cryptography.
+  - **Autonomous QR Detection**: When cloud LLMs (OpenAI, Gemini, Claude) generate QR configurations, GlassQR automatically detects the payload and renders an interactive, customizable vector QR widget with smart actions.
+- **Full Khmer Language Support (ការគាំទ្រភាសាខ្មែរ 🇰🇭)**:
+  - **Native Understanding**: Understands natural conversational prompts, Wi-Fi requests, Apple Wallet passes, and cryptographic commands written in Khmer script.
+  - **Bilingual Response Generation**: Replies fluently and politely in natural Khmer (ភាសាខ្មែរ) or English, dynamically adapting to user language.
+  - **Khmer Audio Pronunciation**: `AVSpeechSynthesizer` automatically detects Khmer text and activates `km-KH` speech voices.
+  - **Interactive Khmer Starter Chips**: One-tap conversation starters in Khmer for general chat, Wi-Fi generation, Apple Wallet, and vault encryption.
 - **Multi-Modal Vision & Photo OCR Inspection**:
   - Direct photo attachment via `PhotosPicker`: attach any photo, document, sign, or complex graphic from your library.
   - Optical barcode detection (`VNDetectBarcodesRequest`) decodes hidden 1D/2D symbologies, extracts metadata, and provides real-time security breakdowns.
@@ -165,8 +174,9 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - **🎨 QR Architect**: Error correction recommendations, contrast balancing, and vector branding specifications.
   - **🔒 Vault & Privacy**: Zero-knowledge encryption, steganography, and cryptographic seed protection.
 - **Expanded Natural Language QR Generation**:
-  - **Zero-Knowledge Encrypted Vaults**: "Encrypt secret note with passcode 1234" -> authentic AES-256 GCM steganographic QR.
-  - **Apple Maps Geolocation**: "Drop pin at Tokyo Tower" or "Directions to Central Park" -> native `maps.apple.com/?ll=...` Apple Maps pins.
+  - **Zero-Knowledge Encrypted Vaults**: "Encrypt secret note with passcode 1234" / "អ៊ិនគ្រីបកំណត់ត្រាសម្ងាត់" -> authentic AES-256 GCM steganographic QR.
+  - **Apple Wallet Passes**: "Create event pass for Alex" / "បង្កើតកាត Apple Wallet" -> native PassKit `.pkpass` bundle.
+  - **Apple Maps Geolocation**: "Drop pin at Tokyo Tower" / "ទម្លាក់ម្ជុលផែនទីនៅ វត្តភ្នំ" -> native `maps.apple.com/?ll=...` Apple Maps pins.
   - **iCalendar Events (RFC 5545)**: "Schedule Product Launch on Oct 20 at 6pm" -> standard `.ics` calendar invitation.
   - **Cryptocurrency Wallets**: Bitcoin (`BIP-21`), Ethereum (`EIP-681`), and Solana addresses with checksum validation.
   - **Payment Portals**: Instant Venmo, Cash App, and PayPal payment links.
@@ -175,8 +185,9 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - **"Program to NFC Tag"**: Directly flash the AI's generated QR code to a physical NFC sticker or card via `NFCStudioSheetView`.
   - **"Open in Apple Maps"**: 1-tap navigation launch for map locations.
   - **"Unlock in Vault Studio"**: 1-tap biometric Face ID / passcode unlock for encrypted QR codes.
+  - **"Customize in Pass Studio"**: 1-tap pass studio launch to customize and export `.pkpass` packages.
 - **Voice Read-Aloud & Audio Synthesis (`AVFoundation`)**:
-  - Native `AVSpeechSynthesizer` provides Siri-grade voice readout of all AI responses with animated speech waveform indicators.
+  - Native `AVSpeechSynthesizer` with dynamic language detection (`km-KH` for Khmer, `en-US` for English) with animated speech waveform indicators.
 - **Multi-Provider Cloud & On-Device Engine with Auto-Fetched Models**:
   - **100% On-Device Neural Engine (Default)**: Zero cloud latency, works offline in airplane mode, zero data collection.
   - **Auto-Fetch Compatible Models via API Key**:

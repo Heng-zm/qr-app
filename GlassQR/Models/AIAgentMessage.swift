@@ -49,14 +49,22 @@ public enum AIPersona: String, CaseIterable, Identifiable, Codable {
     public var systemPromptSnippet: String {
         switch self {
         case .general:
-            return "You are GlassQR Copilot, an expert in QR codes, barcodes, security, and payload design."
+            return "You are GlassQR Copilot, an expert in QR codes, barcodes, security, cryptography, and payload design. You converse naturally with users like ChatGPT or Gemini, remembering previous context in the chat, and fully supporting Khmer (ភាសាខ្មែរ) and English."
         case .security:
-            return "You are GlassQR Security Guard. Prioritize detecting phishing, zero-day links, tracking parameters, malicious file extensions, and insecure connections. Provide strict safety verdicts."
+            return "You are GlassQR Security Guard. Prioritize detecting phishing, zero-day links, tracking parameters, malicious file extensions, and insecure connections. Provide strict safety verdicts in the user's language (including Khmer ភាសាខ្មែរ)."
         case .designer:
-            return "You are GlassQR QR Architect. Advise on error correction, vector scalability, branding, color contrast, and optimal QR layouts for print and digital media."
+            return "You are GlassQR QR Architect. Advise on error correction, vector scalability, branding, color contrast, and optimal QR layouts for print and digital media in the user's language."
         case .privacy:
             return "You are GlassQR Vault & Privacy Guard. Focus on zero-knowledge encryption, steganography, ephemeral payloads, Wi-Fi security, and private cryptographic seed preservation."
         }
+    }
+}
+
+// MARK: - Language Extensions
+
+public extension String {
+    var containsKhmerScript: Bool {
+        unicodeScalars.contains { $0.value >= 0x1780 && $0.value <= 0x17FF }
     }
 }
 

@@ -69,7 +69,17 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
             .replacingOccurrences(of: ">", with: "")
 
         let utterance = AVSpeechUtterance(string: cleanText)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        if cleanText.containsKhmerScript {
+            if let kmVoice = AVSpeechSynthesisVoice(language: "km-KH") {
+                utterance.voice = kmVoice
+            } else if let altVoice = AVSpeechSynthesisVoice.speechVoices().first(where: { $0.language.lowercased().starts(with: "km") }) {
+                utterance.voice = altVoice
+            } else {
+                utterance.voice = AVSpeechSynthesisVoice(language: AVSpeechSynthesisVoice.currentLanguageCode())
+            }
+        } else {
+            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        }
         utterance.rate = 0.52
         utterance.pitchMultiplier = 1.05
 
@@ -96,20 +106,23 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
 
     // MARK: - Main Message Processing Pipeline
 
-    public func processPrompt(_ rawPrompt: String) async -> AIAgentMessage {
+    public func processPrompt(_ rawPrompt: String, history: [AIAgentMessage] = []) async -> AIAgentMessage {
         let trimmed = rawPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isKhmer = trimmed.containsKhmerScript
         if trimmed.isEmpty {
             return AIAgentMessage(
                 isUser: false,
-                text: "Please enter a prompt or question so I can assist you.",
-                quickPrompts: ["Generate Wi-Fi QR", "Drop Pin on Apple Map", "Encrypt Secret Vault", "Create vCard"]
+                text: isKhmer ? "សូមបញ្ចូលសំនួរ ឬពាក្យបញ្ជាដើម្បីឱ្យខ្ញុំអាចជួយអ្នកបាន។" : "Please enter a prompt or question so I can assist you.",
+                quickPrompts: isKhmer
+                    ? ["🇰🇭 បង្កើត QR Wi-Fi", "🇰🇭 បង្កើតកាត Wallet", "🇰🇭 អ៊ិនគ្រីបសម្ងាត់", "🇰🇭 ទម្លាក់ម្ជុលផែនទី"]
+                    : ["Generate Wi-Fi QR", "Drop Pin on Apple Map", "Encrypt Secret Vault", "Create vCard"]
             )
         }
 
         // Check if a cloud provider is active and configured
         if provider != .onDevice && !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             do {
-                if let cloudResponse = try await fetchCloudLLMResponse(prompt: trimmed) {
+                if let cloudResponse = try await fetchCloudLLMResponse(prompt: trimmed, history: history) {
                     return cloudResponse
                 }
             } catch {
@@ -118,7 +131,7 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
         }
 
         // On-Device CoreML Small Language Model & Apple Neural Engine Pipeline (100% Offline)
-        return await CoreMLSLMEngine.shared.generateResponse(prompt: trimmed, persona: persona)
+        return await CoreMLSLMEngine.shared.generateResponse(prompt: trimmed, persona: persona, history: history)
     }
 
     // MARK: - Multi-Modal Visual Inspection (Photo & Camera)
@@ -1048,22 +1061,39 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
 
     // MARK: - Multi-Provider Cloud LLM Engine
 
-    private func fetchCloudLLMResponse(prompt: String) async throws -> AIAgentMessage? {
-        let systemPrompt = "\(persona.systemPromptSnippet) Answer in concise markdown headings and bullet points."
+    private func fetchCloudLLMResponse(prompt: String, history: [AIAgentMessage] = []) async throws -> AIAgentMessage? {
+        let isKhmer = prompt.containsKhmerScript
+        let languageInstruction = isKhmer
+            ? "CRITICAL LANGUAGE REQUIREMENT: The user wrote in Khmer (ភាសាខ្មែរ). You MUST respond completely and fluently in polite, natural Khmer (ភាសាខ្មែរ)."
+            : "Respond in the same language as the user. If the user writes in Khmer (ភាសាខ្មែរ), reply in Khmer. If in English, reply in English."
+
+        let systemPrompt = """
+        \(persona.systemPromptSnippet)
+        
+        ROLE & CONVERSATIONAL MEMORY:
+        You are GlassQR Intelligent AI Copilot, a conversational assistant like ChatGPT and Gemini.
+        Engage in back-and-forth conversational dialogue, remember previous questions and answers in this chat history, answer general and technical questions, and help create QR codes, barcodes, Apple Wallet passes, Wi-Fi networks, and encrypted vaults.
+        
+        \(languageInstruction)
+        
+        FORMATTING:
+        - Format with clean Markdown, clear section headings, bullet points, and code blocks.
+        - When asked to generate or output a QR code, provide the exact payload (e.g. `WIFI:S:...;`, `https://...`, `BEGIN:VCARD...`) so GlassQR can render an interactive vector QR widget.
+        """
 
         switch provider {
         case .openAI, .custom:
-            return try await callOpenAICompatible(prompt: prompt, systemPrompt: systemPrompt)
+            return try await callOpenAICompatible(prompt: prompt, systemPrompt: systemPrompt, history: history)
         case .gemini:
-            return try await callGoogleGemini(prompt: prompt, systemPrompt: systemPrompt)
+            return try await callGoogleGemini(prompt: prompt, systemPrompt: systemPrompt, history: history)
         case .claude:
-            return try await callAnthropicClaude(prompt: prompt, systemPrompt: systemPrompt)
+            return try await callAnthropicClaude(prompt: prompt, systemPrompt: systemPrompt, history: history)
         case .onDevice:
             return nil
         }
     }
 
-    private func callOpenAICompatible(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
+    private func callOpenAICompatible(prompt: String, systemPrompt: String, history: [AIAgentMessage] = []) async throws -> AIAgentMessage? {
         let endpoint = customEndpoint.isEmpty ? "https://api.openai.com/v1/chat/completions" : customEndpoint
         guard let url = URL(string: endpoint) else { return nil }
 
@@ -1073,14 +1103,26 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        var messagesPayload: [[String: Any]] = [
+            ["role": "system", "content": systemPrompt]
+        ]
+
+        // Multi-turn conversational memory (up to last 10 turns)
+        let relevantHistory = history.suffix(10)
+        for msg in relevantHistory {
+            let role = msg.isUser ? "user" : "assistant"
+            let text = msg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                messagesPayload.append(["role": role, "content": text])
+            }
+        }
+        messagesPayload.append(["role": "user", "content": prompt])
+
         let body: [String: Any] = [
             "model": model,
-            "messages": [
-                ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": prompt]
-            ],
+            "messages": messagesPayload,
             "temperature": 0.7,
-            "max_tokens": 600
+            "max_tokens": 800
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -1095,16 +1137,23 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
            let firstChoice = choices.first,
            let message = firstChoice["message"] as? [String: Any],
            let content = message["content"] as? String {
+            let isKhmer = prompt.containsKhmerScript || content.containsKhmerScript
+            let suggestedQR = detectSuggestedQR(from: content, userPrompt: prompt)
+            let quickPrompts = isKhmer
+                ? ["🇰🇭 សួរអ្វីបន្ថែមទៀត", "🇰🇭 បង្កើត QR មួយទៀត", "🇰🇭 ពិនិត្យសុវត្ថិភាព"]
+                : ["Ask follow-up", "Generate another code", "Check safety"]
+
             return AIAgentMessage(
                 isUser: false,
                 text: content,
-                quickPrompts: ["Generate another code", "Check safety", "Program to NFC Tag"]
+                suggestedQR: suggestedQR,
+                quickPrompts: quickPrompts
             )
         }
         return nil
     }
 
-    private func callGoogleGemini(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
+    private func callGoogleGemini(prompt: String, systemPrompt: String, history: [AIAgentMessage] = []) async throws -> AIAgentMessage? {
         let model = activeModelName
         let endpoint = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
         guard let url = URL(string: endpoint) else { return nil }
@@ -1113,18 +1162,33 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        var contents: [[String: Any]] = []
+
+        // Multi-turn conversational memory
+        let relevantHistory = history.suffix(10)
+        for msg in relevantHistory {
+            let role = msg.isUser ? "user" : "model"
+            let text = msg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                contents.append([
+                    "role": role,
+                    "parts": [["text": text]]
+                ])
+            }
+        }
+        contents.append([
+            "role": "user",
+            "parts": [["text": prompt]]
+        ])
+
         let body: [String: Any] = [
-            "contents": [
-                [
-                    "role": "user",
-                    "parts": [
-                        ["text": "\(systemPrompt)\n\nUser Question: \(prompt)"]
-                    ]
-                ]
+            "system_instruction": [
+                "parts": [["text": systemPrompt]]
             ],
+            "contents": contents,
             "generationConfig": [
                 "temperature": 0.7,
-                "maxOutputTokens": 600
+                "maxOutputTokens": 800
             ]
         ]
 
@@ -1141,16 +1205,23 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
            let content = first["content"] as? [String: Any],
            let parts = content["parts"] as? [[String: Any]],
            let text = parts.first?["text"] as? String {
+            let isKhmer = prompt.containsKhmerScript || text.containsKhmerScript
+            let suggestedQR = detectSuggestedQR(from: text, userPrompt: prompt)
+            let quickPrompts = isKhmer
+                ? ["🇰🇭 សួរអ្វីបន្ថែមទៀត", "🇰🇭 បង្កើត QR មួយទៀត", "🇰🇭 ពិនិត្យសុវត្ថិភាព"]
+                : ["Ask follow-up", "Generate matching QR", "Check safety"]
+
             return AIAgentMessage(
                 isUser: false,
                 text: text,
-                quickPrompts: ["Generate matching QR", "Check safety", "Program to NFC Tag"]
+                suggestedQR: suggestedQR,
+                quickPrompts: quickPrompts
             )
         }
         return nil
     }
 
-    private func callAnthropicClaude(prompt: String, systemPrompt: String) async throws -> AIAgentMessage? {
+    private func callAnthropicClaude(prompt: String, systemPrompt: String, history: [AIAgentMessage] = []) async throws -> AIAgentMessage? {
         let endpoint = "https://api.anthropic.com/v1/messages"
         guard let url = URL(string: endpoint) else { return nil }
 
@@ -1161,13 +1232,40 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        var messagesPayload: [[String: Any]] = []
+        let relevantHistory = history.suffix(10)
+        var lastRole: String? = nil
+
+        for msg in relevantHistory {
+            let role = msg.isUser ? "user" : "assistant"
+            let text = msg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+
+            if role == lastRole {
+                if var previous = messagesPayload.last, let prevText = previous["content"] as? String {
+                    previous["content"] = prevText + "\n\n" + text
+                    messagesPayload[messagesPayload.count - 1] = previous
+                }
+            } else {
+                messagesPayload.append(["role": role, "content": text])
+                lastRole = role
+            }
+        }
+
+        if lastRole == "user" {
+            if var previous = messagesPayload.last, let prevText = previous["content"] as? String {
+                previous["content"] = prevText + "\n\n" + prompt
+                messagesPayload[messagesPayload.count - 1] = previous
+            }
+        } else {
+            messagesPayload.append(["role": "user", "content": prompt])
+        }
+
         let body: [String: Any] = [
             "model": model,
             "system": systemPrompt,
-            "messages": [
-                ["role": "user", "content": prompt]
-            ],
-            "max_tokens": 600
+            "messages": messagesPayload,
+            "max_tokens": 800
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -1181,12 +1279,103 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
            let content = json["content"] as? [[String: Any]],
            let first = content.first,
            let text = first["text"] as? String {
+            let isKhmer = prompt.containsKhmerScript || text.containsKhmerScript
+            let suggestedQR = detectSuggestedQR(from: text, userPrompt: prompt)
+            let quickPrompts = isKhmer
+                ? ["🇰🇭 សួរអ្វីបន្ថែមទៀត", "🇰🇭 បង្កើត QR មួយទៀត", "🇰🇭 ពិនិត្យសុវត្ថិភាព"]
+                : ["Ask follow-up", "Create QR code", "Safety Audit"]
+
             return AIAgentMessage(
                 isUser: false,
                 text: text,
-                quickPrompts: ["Create QR code", "Safety Audit", "Write to NFC Tag"]
+                suggestedQR: suggestedQR,
+                quickPrompts: quickPrompts
             )
         }
+        return nil
+    }
+
+    // MARK: - Autonomous QR Payload Recognition in Conversational LLM Output
+
+    private func detectSuggestedQR(from text: String, userPrompt: String) -> AISuggestedQR? {
+        // 1. Wi-Fi regex
+        if let wifiMatch = text.range(of: #"WIFI:S:[^;]+;[^\n]*;;"#, options: .regularExpression) {
+            let payload = String(text[wifiMatch])
+            return AISuggestedQR(
+                title: "Wi-Fi Network QR",
+                payload: payload,
+                formatLabel: "Wi-Fi Consortium",
+                iconName: "wifi",
+                action: .writeNFC(payload: payload)
+            )
+        }
+
+        // 2. Encrypted Vault
+        if let vaultMatch = text.range(of: #"GQR_VAULT:1:[A-Za-z0-9+/=]+"#, options: .regularExpression) {
+            let payload = String(text[vaultMatch])
+            return AISuggestedQR(
+                title: "Encrypted Vault QR",
+                payload: payload,
+                formatLabel: "AES-256 GCM",
+                iconName: "lock.shield.fill",
+                action: .unlockVault(ciphertext: payload)
+            )
+        }
+
+        // 3. Apple Maps
+        if let mapMatch = text.range(of: #"https:\/\/maps\.apple\.com\/\?[^\s"'`\)]+"#, options: .regularExpression) {
+            let payload = String(text[mapMatch])
+            return AISuggestedQR(
+                title: "Apple Maps Location",
+                payload: payload,
+                formatLabel: "Apple Maps Pin",
+                iconName: "mappin.and.ellipse",
+                action: .openAppleMaps(lat: 37.3346, lon: -122.0090, label: "Apple Maps Location")
+            )
+        }
+
+        // 4. Apple Wallet pass
+        if let passMatch = text.range(of: #"https:\/\/glassqr\.app\/pass[^\s"'`\)]*"#, options: .regularExpression) {
+            let payload = String(text[passMatch])
+            return AISuggestedQR(
+                title: "Apple Wallet Pass",
+                payload: payload,
+                formatLabel: "Apple Wallet (.pkpass)",
+                iconName: "wallet.pass.fill",
+                action: .openWalletPass(payload: payload)
+            )
+        }
+
+        // 5. vCard 3.0
+        if text.contains("BEGIN:VCARD") && text.contains("END:VCARD") {
+            if let vcardStart = text.range(of: "BEGIN:VCARD"),
+               let vcardEnd = text.range(of: "END:VCARD") {
+                let payload = String(text[vcardStart.lowerBound..<vcardEnd.upperBound])
+                return AISuggestedQR(
+                    title: "Digital Contact vCard",
+                    payload: payload,
+                    formatLabel: "vCard 3.0 Contact",
+                    iconName: "person.crop.circle.fill",
+                    action: .saveContact(vcard: payload)
+                )
+            }
+        }
+
+        // 6. Generic URL if user asked to create a QR or if response provides an explicit URL
+        let lowerPrompt = userPrompt.lowercased()
+        if lowerPrompt.contains("qr") || lowerPrompt.contains("កូដ") || lowerPrompt.contains("បង្កើត") {
+            if let urlMatch = text.range(of: #"https?:\/\/[^\s"'`\)\]\}]+(?:\.[^\s"'`\)\]\}]+)+"#, options: .regularExpression) {
+                let payload = String(text[urlMatch])
+                return AISuggestedQR(
+                    title: "Web Link QR",
+                    payload: payload,
+                    formatLabel: "URL Link",
+                    iconName: "link",
+                    action: .sharePayload(text: payload)
+                )
+            }
+        }
+
         return nil
     }
 

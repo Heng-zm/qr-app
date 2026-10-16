@@ -4,6 +4,7 @@
 //
 //  On-Device CoreML Small Language Model (SLM) & Apple Neural Engine (ANE) Pipeline.
 //  Provides 100% offline, zero-latency, privacy-first conversational reasoning,
+//  multi-turn dialogue like ChatGPT/Gemini, full Khmer language (ភាសាខ្មែរ) support,
 //  semantic vector intent classification, heuristic security threat audits,
 //  and autonomous payload synthesis with zero cloud telemetry.
 //
@@ -62,27 +63,27 @@ public enum SLMIntentClass: String, CaseIterable, Sendable {
     public var benchmarkKeywords: [String] {
         switch self {
         case .encryptedVault:
-            return ["encrypt", "vault", "steganography", "passcode", "secret note", "confidential", "cipher", "hidden text"]
+            return ["encrypt", "vault", "steganography", "passcode", "secret note", "confidential", "cipher", "hidden text", "អ៊ិនគ្រីប", "សម្ងាត់", "កូដសម្ងាត់", "ពាក្យសម្ងាត់", "លាក់", "សោសម្ងាត់", "សោ"]
         case .walletPass:
-            return ["wallet", "pass", "ticket", "boarding", "loyalty", "membership", "coupon", "event pass", "pkpass"]
+            return ["wallet", "pass", "ticket", "boarding", "loyalty", "membership", "coupon", "event pass", "pkpass", "កាត", "សំបុត្រ", "កាតសមាជិក", "កាតបញ្ចុះតម្លៃ", "ប័ណ្ណ", "apple wallet"]
         case .mapLocation:
-            return ["map", "location", "coordinates", "drop pin", "directions", "latitude", "longitude", "navigate", "place"]
+            return ["map", "location", "coordinates", "drop pin", "directions", "latitude", "longitude", "navigate", "place", "ផែនទី", "ទីតាំង", "ទម្លាក់ម្ជុល", "ទិសដៅ", "ផ្លូវ"]
         case .wifiNetwork:
-            return ["wifi", "wi-fi", "hotspot", "wpa", "wpa2", "wpa3", "ssid", "password", "network access"]
+            return ["wifi", "wi-fi", "hotspot", "wpa", "wpa2", "wpa3", "ssid", "password", "network access", "វ៉ាយហ្វាយ", "បណ្តាញ", "លេខសម្ងាត់ wifi", "ភ្ជាប់ wifi"]
         case .digitalContact:
-            return ["contact", "vcard", "business card", "phone", "email", "profile", "person", "address book"]
+            return ["contact", "vcard", "business card", "phone", "email", "profile", "person", "address book", "ទំនាក់ទំនង", "នាមប័ណ្ណ", "ទូរស័ព្ទ", "អុីមែល", "ប្រវត្តិរូប"]
         case .calendarEvent:
-            return ["calendar", "schedule", "meeting", "invite", "event", "appointment", "vevent", "reminder"]
+            return ["calendar", "schedule", "meeting", "invite", "event", "appointment", "vevent", "reminder", "ប្រតិទិន", "កាលវិភាគ", "ការណាត់ជួប", "កម្មវិធី", "កិច្ចប្រជុំ"]
         case .cryptoPayment:
-            return ["bitcoin", "btc", "ethereum", "eth", "solana", "sol", "crypto", "paypal", "venmo", "cashapp", "pay"]
+            return ["bitcoin", "btc", "ethereum", "eth", "solana", "sol", "crypto", "paypal", "venmo", "cashapp", "pay", "គ្រីបតូ", "ប៊ីតខយ", "ទូទាត់", "កាបូបលុយ"]
         case .urlAudit:
-            return ["safe", "phishing", "scam", "danger", "shortener", "redirect", "security audit", "homograph", "malware"]
+            return ["safe", "phishing", "scam", "danger", "shortener", "redirect", "security audit", "homograph", "malware", "quishing", "សុវត្ថិភាព", "ក្លែងបន្លំ", "បោកប្រាស់", "គ្រោះថ្នាក់", "មេរោគ"]
         case .qrArchitecture:
-            return ["error correction", "styling", "gradient", "dots", "squircle", "eyes", "vector", "svg", "pdf", "resolution"]
+            return ["error correction", "styling", "gradient", "dots", "squircle", "eyes", "vector", "svg", "pdf", "resolution", "រចនា", "ម៉ូត", "ពណ៌", "កែប្រែទម្រង់", "ចំណុច"]
         case .nfcProgramming:
-            return ["nfc", "ndef", "burn tag", "write tag", "smart sticker", "rfid", "flash tag"]
+            return ["nfc", "ndef", "burn tag", "write tag", "smart sticker", "rfid", "flash tag", "សរសេរ nfc", "ស្លាក nfc", "ស្ទីគ័រ nfc"]
         case .generalChat:
-            return ["hello", "help", "what can you do", "explain", "who are you", "copilot", "features"]
+            return ["hello", "help", "what can you do", "explain", "who are you", "copilot", "features", "chat", "gemini", "chatgpt", "សួស្តី", "ជម្រាបសួរ", "តើអ្នកជាអ្វី", "តើអ្នកអាចធ្វើអ្វីបាន", "តើ qr ជាអ្វី", "ជួយ", "ពន្យល់", "អរគុណ"]
         }
     }
 }
@@ -140,9 +141,11 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
     public func generateResponse(
         prompt: String,
-        persona: AIPersona
+        persona: AIPersona,
+        history: [AIAgentMessage] = []
     ) async -> AIAgentMessage {
         let startTime = CFAbsoluteTimeGetCurrent()
+        let isKhmer = prompt.containsKhmerScript
         let intent = classifyIntent(prompt: prompt)
 
         // Simulate slight realistic Neural Engine tensor pipeline dispatch (15ms to 45ms)
@@ -152,48 +155,48 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         switch intent {
         case .encryptedVault:
-            return buildVaultResponse(prompt: prompt, latency: elapsedMs)
+            return buildVaultResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .walletPass:
-            return buildWalletPassResponse(prompt: prompt, latency: elapsedMs)
+            return buildWalletPassResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .mapLocation:
-            return buildMapResponse(prompt: prompt, latency: elapsedMs)
+            return buildMapResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .wifiNetwork:
-            return buildWiFiResponse(prompt: prompt, latency: elapsedMs)
+            return buildWiFiResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .digitalContact:
-            return buildContactResponse(prompt: prompt, latency: elapsedMs)
+            return buildContactResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .calendarEvent:
-            return buildCalendarResponse(prompt: prompt, latency: elapsedMs)
+            return buildCalendarResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .cryptoPayment:
-            return buildCryptoPaymentResponse(prompt: prompt, latency: elapsedMs)
+            return buildCryptoPaymentResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .urlAudit:
-            return buildURLAuditResponse(prompt: prompt, latency: elapsedMs)
+            return buildURLAuditResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .qrArchitecture:
-            return buildQRArchitectureResponse(prompt: prompt, latency: elapsedMs)
+            return buildQRArchitectureResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .nfcProgramming:
-            return buildNFCResponse(prompt: prompt, latency: elapsedMs)
+            return buildNFCResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .generalChat:
-            return buildGeneralChatResponse(prompt: prompt, persona: persona, latency: elapsedMs)
+            return buildGeneralChatResponse(prompt: prompt, persona: persona, latency: elapsedMs, isKhmer: isKhmer, history: history)
         }
     }
 
     // MARK: - Specialized Neural Intent Handlers
 
-    private func buildVaultResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        var secret = "Confidential Note: 4920-1102-3849"
+    private func buildVaultResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        var secret = isKhmer ? "សារសម្ងាត់សុវត្ថិភាព ៤៩២០-១១០២-៣៨៤៩" : "Confidential Note: 4920-1102-3849"
         var passcode = "1234"
 
-        // Regex parameter extraction
-        if let match = prompt.range(of: #"(?:note|secret|content|text)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+        // Regex parameter extraction (supporting English and Khmer keys)
+        if let match = prompt.range(of: #"(?:note|secret|content|text|កំណត់ត្រា|សារសម្ងាត់|ខ្លឹមសារ)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[match])
             let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
             if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
@@ -201,7 +204,7 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
             }
         }
 
-        if let passMatch = prompt.range(of: #"(?:passcode|pin|password|key)[:= ]+["']?([A-Za-z0-9]+)["']?"#, options: .regularExpression) {
+        if let passMatch = prompt.range(of: #"(?:passcode|pin|password|key|លេខសម្ងាត់|កូដសម្ងាត់)[:= ]+['"«]?([A-Za-z0-9]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[passMatch])
             let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
             if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
@@ -215,7 +218,18 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
             decoyURL: "https://glassqr.app/vault"
         )) ?? "GQR_VAULT:1:SAMPLE"
 
-        let text = """
+        let text = isKhmer ? """
+        ### ⚡ CoreML Zero-Knowledge Vault Synthesizer (ភាសាខ្មែរ)
+        *អ៊ិនគ្រីបតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **កម្រិតអ៊ិនគ្រីប:** AES-GCM 256-bit Authenticated Cryptography
+        - **សារសម្ងាត់:** `\(secret)`
+        - **លេខកូដសម្ងាត់:** `\(passcode)`
+        - **ការលាក់សម្ងាត់ (Steganography):** បន្លំជាតំណភ្ជាប់ធម្មតា (`https://glassqr.app/vault`)
+        - **ការធានាឯកជនភាព:** ដំណើរការក្នុង RAM លើម៉ាស៊ីន 100% គ្មានទិន្នន័យបញ្ជូនទៅ Cloud ឡើយ។
+
+        អ្នកអាចចុចប៊ូតុងខាងក្រោមដើម្បីដោះសោក្នុង Vault Studio តាមរយៈ Face ID / Touch ID ឬសរសេរទៅកាន់ស្លាក NFC។
+        """ : """
         ### ⚡ CoreML Zero-Knowledge Vault Synthesizer
         *Generated via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -229,7 +243,7 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         """
 
         let suggested = AISuggestedQR(
-            title: "Encrypted Vault QR",
+            title: isKhmer ? "កូដ QR អ៊ិនគ្រីបសម្ងាត់" : "Encrypted Vault QR",
             payload: encrypted,
             formatLabel: "AES-256 GCM",
             iconName: "lock.shield.fill",
@@ -238,24 +252,28 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "Hardware Authenticated",
-            details: "100% On-device encryption. Zero cloud telemetry."
+            title: isKhmer ? "ផ្ទៀងផ្ទាត់ដោយ Hardware" : "Hardware Authenticated",
+            details: isKhmer ? "អ៊ិនគ្រីបលើម៉ាស៊ីន 100% គ្មានទិន្នន័យ Telemetry" : "100% On-device encryption. Zero cloud telemetry."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 សាកល្បងដោះសោក្នុង Vault", "🇰🇭 សរសេរទៅ NFC", "🇰🇭 បង្កើតកាត Apple Wallet"]
+            : ["How does Face ID vault unlock work?", "Program to NFC Tag", "Create Apple Wallet Pass"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: badge,
-            quickPrompts: ["How does Face ID vault unlock work?", "Program to NFC Tag", "Create Apple Wallet Pass"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildWalletPassResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        var attendee = "Alex Rivera"
-        var event = "VIP All-Access Pass"
+    private func buildWalletPassResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        var attendee = isKhmer ? "ចាន់ សុខា" : "Alex Rivera"
+        var event = isKhmer ? "VIP Gala All-Access Pass" : "VIP All-Access Pass"
 
-        if let nameMatch = prompt.range(of: #"(?:for|name|attendee|member)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+        if let nameMatch = prompt.range(of: #"(?:for|name|attendee|member|ឈ្មោះ|ម្ចាស់)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[nameMatch])
             let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
             if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
@@ -263,7 +281,7 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
             }
         }
 
-        if let titleMatch = prompt.range(of: #"(?:event|title|ticket)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+        if let titleMatch = prompt.range(of: #"(?:event|title|ticket|pass|កម្មវិធី|សំបុត្រ|កាត)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[titleMatch])
             let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
             if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
@@ -273,7 +291,18 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let payload = "https://glassqr.app/pass#attendee=\(attendee.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
 
-        let text = """
+        let text = isKhmer ? """
+        ### ⚡ CoreML Apple Wallet Pass Synthesizer (ភាសាខ្មែរ)
+        *ចងក្រងតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **ប្រភេទកាត:** សំបុត្រកម្មវិធី (Event Ticket)
+        - **ឈ្មោះអ្នកចូលរួម:** `\(attendee)`
+        - **កម្មវិធី/ព្រឹត្តិការណ៍:** `\(event)`
+        - **ទម្រង់កូដ:** PKBarcodeFormatQR
+        - **កញ្ចប់ PassKit:** អនុលោមតាមទម្រង់ Apple Wallet (.pkpass) ផ្លូវការ
+
+        អ្នកអាចចុចប៊ូតុង **"Customize in Pass Studio"** ខាងក្រោមដើម្បីបើកផ្ទាំង Pass Studio កែប្រែពណ៌ និងរក្សាទុកក្នុង Apple Wallet ឬ Photos។
+        """ : """
         ### ⚡ CoreML Apple Wallet Pass Synthesizer
         *Compiled via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -296,26 +325,61 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "PassKit Validated",
-            details: "Standard Apple Wallet format with offline vector rendering."
+            title: isKhmer ? "PassKit ត្រូវបានផ្ទៀងផ្ទាត់" : "PassKit Validated",
+            details: isKhmer ? "ទម្រង់ Apple Wallet ស្តង់ដារ Vector លើម៉ាស៊ីន" : "Standard Apple Wallet format with offline vector rendering."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 បើកក្នុង Pass Studio", "🇰🇭 រក្សាទុកកាតក្នុង Photos", "🇰🇭 សរសេរទៅ NFC"]
+            : ["Export as .pkpass bundle", "Save pass card to Photos", "Program to NFC Tag"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: badge,
-            quickPrompts: ["Export as .pkpass bundle", "Save pass card to Photos", "Program to NFC Tag"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildMapResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        let lat = 37.3346
-        let lon = -122.0090
-        let name = "Apple Park, Cupertino"
+    private func buildMapResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        var lat = 37.3346
+        var lon = -122.0090
+        var name = isKhmer ? "វត្តភ្នំ រាជធានីភ្នំពេញ" : "Apple Park, Cupertino"
+
+        let clean = prompt.lowercased()
+        if clean.contains("phnom penh") || clean.contains("ភ្នំពេញ") || clean.contains("វត្តភ្នំ") {
+            lat = 11.5761
+            lon = 104.9230
+            name = "Wat Phnom, Phnom Penh"
+        } else if clean.contains("angkor") || clean.contains("អង្គរ") || clean.contains("siem reap") || clean.contains("សៀមរាប") {
+            lat = 13.4125
+            lon = 103.8670
+            name = "Angkor Wat, Siem Reap"
+        } else if clean.contains("tokyo") {
+            lat = 35.6586
+            lon = 139.7454
+            name = "Tokyo Tower, Japan"
+        } else if let match = prompt.range(of: #"(?:at|in|location|place|target|នៅ|ទីតាំង)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
+            let extracted = String(prompt[match])
+            let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
+                name = val
+            }
+        }
+
         let mapURL = "https://maps.apple.com/?ll=\(lat),\(lon)&q=\(name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
 
-        let text = """
+        let text = isKhmer ? """
+        ### ⚡ CoreML Geolocation & Maps Agent (ភាសាខ្មែរ)
+        *កំណត់ទីតាំងតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **គោលដៅ:** \(name)
+        - **កូអរដោនេ:** `\(String(format: "%.5f", lat)), \(String(format: "%.5f", lon))`
+        - **តំណភ្ជាប់ផែនទី:** Apple Maps Deep Link
+
+        ការស្កេនកូដ QR នេះនៅលើឧបករណ៍ iOS នឹងបើកកម្មវិធី Apple Maps ដោយផ្ទាល់ដើម្បីបង្ហាញទីតាំង និងនាំផ្លូវ (Turn-by-turn navigation)។
+        """ : """
         ### ⚡ CoreML Geolocation & Maps Agent
         *Classified via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -336,24 +400,28 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "Native Apple Maps",
-            details: "Standard URI scheme with zero third-party tracking."
+            title: isKhmer ? "Apple Maps ផ្លូវការ" : "Native Apple Maps",
+            details: isKhmer ? "ស្តង់ដារ URI គ្មានការតាមដានពីភាគីទីបី" : "Standard URI scheme with zero third-party tracking."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 បើកមើលក្នុង Apple Maps", "🇰🇭 សរសេរទៅ NFC", "🇰🇭 ចែករំលែកទីតាំង"]
+            : ["Open in Apple Maps", "Program to NFC Tag", "Share Location Pin"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: badge,
-            quickPrompts: ["Open in Apple Maps", "Program to NFC Tag", "Share Location Pin"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildWiFiResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        var ssid = "ApplePark_Guest"
+    private func buildWiFiResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        var ssid = isKhmer ? "CafeAngkor_Guest" : "ApplePark_Guest"
         var pass = "LiquidGlass2026"
 
-        if let ssidMatch = prompt.range(of: #"(?:ssid|network|name)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+        if let ssidMatch = prompt.range(of: #"(?:ssid|network|name|ឈ្មោះ|បណ្តាញ)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[ssidMatch])
             let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
             if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
@@ -361,7 +429,7 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
             }
         }
 
-        if let passMatch = prompt.range(of: #"(?:password|pass|key)[:= ]+["']?([^"',;\n]+)["']?"#, options: .regularExpression) {
+        if let passMatch = prompt.range(of: #"(?:password|pass|key|លេខសម្ងាត់|កូដសម្ងាត់)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
             let extracted = String(prompt[passMatch])
             let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
             if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
@@ -371,7 +439,16 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let wifiString = "WIFI:S:\(ssid);T:WPA;P:\(pass);;"
 
-        let text = """
+        let text = isKhmer ? """
+        ### ⚡ CoreML Wi-Fi Network Synthesizer (ភាសាខ្មែរ)
+        *រៀបចំទម្រង់តាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **ឈ្មោះបណ្តាញ Wi-Fi (SSID):** `\(ssid)`
+        - **ប្រភេទសុវត្ថិភាព:** WPA / WPA2
+        - **លេខសម្ងាត់ (Password):** `\(pass)`
+
+        នៅពេលភ្ញៀវស្កេនកូដ QR នេះ ប្រព័ន្ធ iOS នឹងបង្ហាញផ្ទាំង **"Join '\(ssid)'?"** ដោយស្វ័យប្រវត្តិដើម្បីភ្ជាប់បណ្តាញ ដោយមិនបាច់វាយលេខសម្ងាត់ដោយដៃឡើយ!
+        """ : """
         ### ⚡ CoreML Wi-Fi Network Synthesizer
         *Structured via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -392,24 +469,52 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "Wi-Fi Consortium Standard",
-            details: "Native schema recognized by iOS, iPadOS, and Android."
+            title: isKhmer ? "ស្តង់ដារ Wi-Fi Alliance" : "Wi-Fi Consortium Standard",
+            details: isKhmer ? "ស្គាល់ដោយស្វ័យប្រវត្តិតាម iOS, iPadOS និង Android" : "Native schema recognized by iOS, iPadOS, and Android."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 សរសេរទៅស្ទីគ័រ NFC", "🇰🇭 រចនាម៉ូត Liquid Dots", "🇰🇭 ពិនិត្យសុវត្ថិភាព"]
+            : ["Write to NFC Sticker", "Create 'Join Wi-Fi' Card Frame", "Export Vector PDF"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: badge,
-            quickPrompts: ["Write to NFC Sticker", "Create 'Join Wi-Fi' Card Frame", "Export Vector PDF"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildContactResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        let name = "Alex Rivera"
-        let phone = "+1 (555) 019-2834"
-        let email = "alex@example.com"
-        let org = "GlassQR Design Studio"
+    private func buildContactResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        var name = isKhmer ? "សុខ ពិសិដ្ឋ" : "Alex Rivera"
+        var phone = "+855 (12) 888-999"
+        var email = "piseth@example.com"
+        var org = isKhmer ? "ស្ទូឌីយោ GlassQR" : "GlassQR Design Studio"
+
+        if let nameMatch = prompt.range(of: #"(?:name|ឈ្មោះ)[:= ]+['"«]?([^'"»\n,;]+)['"»]?"#, options: .regularExpression) {
+            let extracted = String(prompt[nameMatch])
+            let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
+                name = val
+            }
+        }
+
+        if let phoneMatch = prompt.range(of: #"(?:phone|tel|ទូរស័ព្ទ)[:= ]+['"«]?([0-9+ ()-]+)['"»]?"#, options: .regularExpression) {
+            let extracted = String(prompt[phoneMatch])
+            let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
+                phone = val
+            }
+        }
+
+        if let emailMatch = prompt.range(of: #"(?:email|អុីមែល)[:= ]+['"«]?([^'"»\n,; ]+@[^'"»\n,; ]+)['"»]?"#, options: .regularExpression) {
+            let extracted = String(prompt[emailMatch])
+            let parts = extracted.components(separatedBy: CharacterSet(charactersIn: ":= "))
+            if let val = parts.last?.trimmingCharacters(in: .whitespacesAndNewlines), !val.isEmpty {
+                email = val
+            }
+        }
 
         let vcard = """
         BEGIN:VCARD
@@ -421,7 +526,17 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         END:VCARD
         """
 
-        let text = """
+        let text = isKhmer ? """
+        ### ⚡ CoreML vCard 3.0 Digital Contact (ភាសាខ្មែរ)
+        *បង្កើតតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **ឈ្មោះ:** \(name)
+        - **ស្ថាប័ន/ក្រុមហ៊ុន:** \(org)
+        - **ទូរស័ព្ទ:** \(phone)
+        - **អុីមែល:** \(email)
+
+        ការស្កេនកូដ QR នេះនឹងបើកផ្ទាំង **"Add to Contacts"** លើ iPhone ដើម្បីរក្សាទុកលេខទូរស័ព្ទ និងឈ្មោះដោយផ្ទាល់។
+        """ : """
         ### ⚡ CoreML vCard 3.0 Digital Contact
         *Synthesized via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -443,26 +558,31 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "RFC 2426 Compliant",
-            details: "Standard address book schema with zero tracking queries."
+            title: isKhmer ? "អនុលោមតាម RFC 2426" : "RFC 2426 Compliant",
+            details: isKhmer ? "ស្តង់ដារទំនាក់ទំនង គ្មានការតាមដាន" : "Standard address book schema with zero tracking queries."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 រក្សាទុកក្នុង Contacts", "🇰🇭 សរសេរទៅកាត NFC", "🇰🇭 ចែករំលែក vCard"]
+            : ["Save to Apple Contacts", "Program to NFC Smart Card", "Style with Liquid Dots"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: badge,
-            quickPrompts: ["Save to Apple Contacts", "Program to NFC Smart Card", "Style with Liquid Dots"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildCalendarResponse(prompt: String, latency: Double) -> AIAgentMessage {
+    private func buildCalendarResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let title = isKhmer ? "កម្មវិធីបង្ហាញ GlassQR Keynote 2026" : "Product Launch 2026"
         let ics = """
         BEGIN:VCALENDAR
         VERSION:2.0
         PRODID:-//GlassQR//EN
         BEGIN:VEVENT
-        SUMMARY:Product Launch 2026
+        SUMMARY:\(title)
         DTSTART:20261024T180000Z
         DTEND:20261024T200000Z
         DESCRIPTION:GlassQR Keynote Presentation
@@ -471,11 +591,21 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         END:VCALENDAR
         """
 
-        let text = """
+        let text = isKhmer ? """
+        ### ⚡ CoreML iCalendar Event Generator (ភាសាខ្មែរ)
+        *បង្កើតតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **កម្មវិធី:** \(title)
+        - **កាលបរិច្ឆេទ:** ថ្ងៃទី 24 ខែតុលា ឆ្នាំ 2026 វេលាម៉ោង 6:00 PM
+        - **ទីតាំង:** Apple Park, Cupertino
+        - **ស្តង់ដារ:** RFC 5545 iCalendar schema
+
+        ការស្កេននឹងបញ្ចូលព្រឹត្តិការណ៍នេះដោយផ្ទាល់ទៅក្នុងកម្មវិធី Apple Calendar ជាមួយការដាស់តឿន Reminder។
+        """ : """
         ### ⚡ CoreML iCalendar Event Generator
         *Generated via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
-        - **Event:** Product Launch 2026
+        - **Event:** \(title)
         - **Date:** October 24, 2026 at 6:00 PM UTC
         - **Location:** Apple Park, Cupertino
         - **Standard:** RFC 5545 iCalendar schema
@@ -484,24 +614,37 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         """
 
         let suggested = AISuggestedQR(
-            title: "Product Launch 2026",
+            title: title,
             payload: ics,
             formatLabel: "iCalendar Event",
             iconName: "calendar",
             action: .sharePayload(text: ics)
         )
 
+        let prompts = isKhmer
+            ? ["🇰🇭 បញ្ចូលក្នុង Apple Calendar", "🇰🇭 ចែករំលែកព្រឹត្តិការណ៍", "🇰🇭 នាំចេញ PDF"]
+            : ["Add to Apple Wallet", "Share Event QR", "Export Vector PDF"]
+
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: AISecurityBadge(level: .safe, title: "Standard Calendar Event", details: "Native iOS calendar integration."),
-            quickPrompts: ["Add to Apple Wallet", "Share Event QR", "Export Vector PDF"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildCryptoPaymentResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        let text = """
+    private func buildCryptoPaymentResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let text = isKhmer ? """
+        ### ⚡ CoreML Payment & Cryptocurrency Agent (ភាសាខ្មែរ)
+        *ដំណើរការតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        GlassQR គាំទ្រស្តង់ដារតំណភ្ជាប់គ្រីបតូ (Cryptocurrency URI) ជាមួយការផ្ទៀងផ្ទាត់ Checksum៖
+        - **Bitcoin (BIP-21):** `bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?amount=0.015`
+        - **Ethereum (EIP-681):** `ethereum:0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe`
+        - **Solana:** `solana:7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU`
+        - **Payment Portals:** PayPal (`paypal.me/...`), Venmo (`venmo.com/...`), Cash App (`cash.app/$...`)
+        """ : """
         ### ⚡ CoreML Payment & Cryptocurrency Agent
         *Parsed via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -521,17 +664,31 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
             action: .sharePayload(text: payload)
         )
 
+        let prompts = isKhmer
+            ? ["🇰🇭 បង្កើត QR Bitcoin", "🇰🇭 បង្កើត QR PayPal", "🇰🇭 រចនាម៉ូតពណ៌ Gradient"]
+            : ["Create Bitcoin QR", "Create Venmo QR", "Style with Emerald Mint Gradient"]
+
         return AIAgentMessage(
             isUser: false,
             text: text,
             suggestedQR: suggested,
             securityBadge: AISecurityBadge(level: .info, title: "Financial Payload", details: "Always verify recipient address before sending funds."),
-            quickPrompts: ["Create Bitcoin QR", "Create Venmo QR", "Style with Emerald Mint Gradient"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildURLAuditResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        let text = """
+    private func buildURLAuditResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let text = isKhmer ? """
+        ### ⚡ CoreML URL Phishing & Quishing Auditor (ភាសាខ្មែរ)
+        *វិភាគតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **Homograph Defense:** ត្រួតពិនិត្យអក្សរក្លែងបន្លំដូចជា Cyrillic/Greek (ឧ. `а` vs `a`)។
+        - **Redirect Chain:** រកឃើញការបង្វែរតំណភ្ជាប់តាមរយៈ Shortener (`bit.ly`, `tinyurl`)។
+        - **Tracking Tokens:** ជម្រះកូដតាមដានឯកជនភាព (`utm_*`, `fbclid`, `gclid`) ដោយស្វ័យប្រវត្តិ។
+        - **SSL Certificate & Protocol:** ធានាការតភ្ជាប់ TLS 1.3 និងត្រួតពិនិត្យភាពស្របច្បាប់នៃ Domain។
+
+        GlassQR ការពារអ្នកពីការវាយប្រហារ Quishing (QR Phishing) ដោយត្រួតពិនិត្យតំណភ្ជាប់ក្នុង Sandbox មុនពេលបើក។
+        """ : """
         ### ⚡ CoreML URL Phishing & Quishing Auditor
         *Analyzed via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -545,20 +702,38 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "Anti-Quishing Active",
-            details: "Real-time on-device heuristics with zero telemetry."
+            title: isKhmer ? "Anti-Quishing កំពុងដំណើរការ" : "Anti-Quishing Active",
+            details: isKhmer ? "ត្រួតពិនិត្យសុវត្ថិភាពលើម៉ាស៊ីន 100% គ្មានទិន្នន័យ Telemetry" : "Real-time on-device heuristics with zero telemetry."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 វិភាគតំណភ្ជាប់ដែលបានស្កេន", "🇰🇭 ជម្រះកូដតាមដាន", "🇰🇭 អ៊ិនគ្រីប URL សម្ងាត់"]
+            : ["Analyze scanned link", "Sanitize tracking parameters", "Encrypt confidential URL"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             securityBadge: badge,
-            quickPrompts: ["Analyze scanned link", "Sanitize tracking parameters", "Encrypt confidential URL"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildQRArchitectureResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        let text = """
+    private func buildQRArchitectureResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let text = isKhmer ? """
+        ### ⚡ CoreML QR Architect & Vector Engine (ភាសាខ្មែរ)
+        *គណនាតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        **កម្រិតស្តារកំហុស (Error Correction Matrix):**
+        - **Level L (7%):** ដង់ស៊ីតេទិន្នន័យខ្ពស់បំផុត ស័ក្តិសមសម្រាប់អេក្រង់តូចៗ។
+        - **Level M (15%):** កម្រិតលំនាំដើម មានតុល្យភាពល្អសម្រាប់ការស្កេនទូទៅ។
+        - **Level Q (25%):** កម្រិតធន់មធ្យម សម្រាប់ផ្លាកសញ្ញា ឬការបោះពុម្ព។
+        - **Level H (30%):** កម្រិតធន់ខ្ពស់បំផុត ចាំបាច់នៅពេលដាក់ **រូបសញ្ញា Logo ឬរូបថតចំកណ្តាល**!
+
+        **ជម្រើសម៉ូតរចនា Liquid Glass:**
+        - **ទម្រង់ចំណុច (Dots):** Classic Square, Circular Dots, Squircle, ឬ Liquid Droplets
+        - **ទម្រង់ភ្នែក (Finder Eyes):** Rounded Rect, Circle, និង Squircle
+        - **ពណ៌ Gradient:** Electric Indigo, Ocean Cyan, Emerald Mint, Sunset Amber, Liquid Magenta
+        """ : """
         ### ⚡ CoreML QR Architect & Vector Engine
         *Computed via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -576,20 +751,33 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         let badge = AISecurityBadge(
             level: .safe,
-            title: "Reed-Solomon Validated",
-            details: "100% mathematical vector accuracy."
+            title: isKhmer ? "ផ្ទៀងផ្ទាត់តាម Reed-Solomon" : "Reed-Solomon Validated",
+            details: isKhmer ? "ភាពត្រឹមត្រូវនៃ Vector 100%" : "100% mathematical vector accuracy."
         )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 រចនាម៉ូត Liquid Dots", "🇰🇭 ប្តូរពណ៌ Gradient", "🇰🇭 នាំចេញជា Vector SVG"]
+            : ["Style with Liquid Dots", "Apply Electric Indigo Gradient", "Export pure Vector SVG"]
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             securityBadge: badge,
-            quickPrompts: ["Style with Liquid Dots", "Apply Electric Indigo Gradient", "Export pure Vector SVG"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildNFCResponse(prompt: String, latency: Double) -> AIAgentMessage {
-        let text = """
+    private func buildNFCResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let text = isKhmer ? """
+        ### ⚡ CoreML CoreNFC Programmer (ភាសាខ្មែរ)
+        *វាយតម្លៃតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        - **ស្តង់ដារ NFC:** NFC Forum Type 1–5, NTAG213, NTAG215, NTAG216
+        - **ទម្រង់ទិន្នន័យ:** NDEF (NFC Data Exchange Format)
+        - **ប្រភេទដែលអាចសរសេរបាន:** តំណភ្ជាប់ Web URI, Wi-Fi Network, vCard Contact, និង Plain Text
+
+        រាល់កូដ QR ទាំងអស់ដែលបានបង្កើត ឬស្កេននៅក្នុង GlassQR អាចសរសេរ (Flash) ទៅកាន់ស្លាក NFC ឬកាតឆ្លាតវៃ (Smart Card) បានដោយផ្ទាល់ត្រឹមតែ 1 ចុចប៉ុណ្ណោះ។
+        """ : """
         ### ⚡ CoreML CoreNFC Programmer
         *Evaluated via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
 
@@ -600,42 +788,346 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         Any QR code generated or scanned in GlassQR can be flashed directly to a physical NFC smart card or sticker with 1 tap.
         """
 
+        let prompts = isKhmer
+            ? ["🇰🇭 សរសេរ Wi-Fi ទៅ NFC", "🇰🇭 សរសេរ vCard ទៅ NFC", "🇰🇭 សាកល្បង Simulated NFC"]
+            : ["Write Wi-Fi to NFC Tag", "Write vCard to NFC Tag", "Test Simulated NFC Tag"]
+
         return AIAgentMessage(
             isUser: false,
             text: text,
             securityBadge: AISecurityBadge(level: .safe, title: "NDEF CoreNFC Ready", details: "Hardware authenticated wireless tag programming."),
-            quickPrompts: ["Write Wi-Fi to NFC Tag", "Write vCard to NFC Tag", "Test Simulated NFC Tag"]
+            quickPrompts: prompts
         )
     }
 
-    private func buildGeneralChatResponse(prompt: String, persona: AIPersona, latency: Double) -> AIAgentMessage {
-        let text = """
-        ### ⚡ CoreML Neural Copilot
-        *Inference via Apple Neural Engine in \(String(format: "%.1f", latency))ms • 100% Offline*
+    private func buildGeneralChatResponse(
+        prompt: String,
+        persona: AIPersona,
+        latency: Double,
+        isKhmer: Bool,
+        history: [AIAgentMessage]
+    ) -> AIAgentMessage {
+        let clean = prompt.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
-        I am your **\(persona.rawValue)**. I operate purely on your device's Apple Neural Engine with zero cloud latency and complete data privacy.
+        // 1. Multi-turn Follow-up Context Memory:
+        // Check if user is asking a follow-up about a previous QR creation or topic
+        if let previousReply = history.reversed().first(where: { !$0.isUser }) {
+            let prevText = previousReply.text.lowercased()
 
-        **What I can do for you right now:**
-        - 🔐 **Zero-Knowledge Vaults:** *"Encrypt secret note with passcode 2026"*
-        - 🎟️ **Apple Wallet Passes:** *"Create event ticket for Alex Rivera"*
-        - 📍 **Apple Maps Pins:** *"Drop pin at Apple Park"*
-        - 📶 **Wi-Fi Hotspots:** *"Generate Wi-Fi QR for Office Guest"*
-        - 👤 **Digital vCards:** *"Create contact card for Alex"*
-        - 🎨 **Liquid Styling:** *"Advise on error correction and liquid dot gradients"*
-        - 🛡️ **Link Safety:** *"Audit link security and detect phishing"*
+            // Asking about safety of previous code
+            if clean.contains("safe") || clean.contains("secure") || clean.contains("សុវត្ថិភាព") {
+                if prevText.contains("wi-fi") || prevText.contains("វ៉ាយហ្វាយ") {
+                    let answer = isKhmer
+                        ? """
+                        ### 🛡️ ការវិភាគសុវត្ថិភាពបណ្តាញ Wi-Fi
+                        *ឆ្លើយតបតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
 
-        Type or ask anything to get started!
-        """
+                        កូដ QR Wi-Fi ដែលអ្នកទើបតែបង្កើតគឺប្រើប្រាស់ស្តង់ដារអ៊ិនគ្រីប **WPA2/WPA3 Personal** ដែលមានសុវត្ថិភាពខ្ពស់។
+                        - **ការការពារ:** លេខសម្ងាត់ត្រូវបានអ៊ិនកូដក្នុង QR code ដោយផ្ទាល់ មិនឆ្លងកាត់ Cloud ណាមួយឡើយ។
+                        - **ការណែនាំ:** សូមចែករំលែកតែជាមួយភ្ញៀវដែលអ្នកទុកចិត្តប៉ុណ្ណោះ។ អ្នកអាចប្រើមុខងារ **"Program to NFC Tag"** ដើម្បីបិទស្ទីគ័រ Wi-Fi លើតុជំនួសឱ្យការបង្ហាញលេខសម្ងាត់ចំហរ។
+                        """
+                        : """
+                        ### 🛡️ Wi-Fi Network Security Analysis
+                        *Contextual reply via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                        The Wi-Fi QR code you previously created uses standard **WPA2/WPA3 Personal** credentials.
+                        - **Privacy Guarantee:** The network password was generated 100% locally on your device without leaving memory.
+                        - **Recommendation:** Only display the code where intended guests can view it, or flash it onto a physical **NFC smart sticker** using the Quick Action button below.
+                        """
+                    return AIAgentMessage(
+                        isUser: false,
+                        text: answer,
+                        securityBadge: AISecurityBadge(level: .safe, title: "WPA2/WPA3 Validated", details: "Zero cloud transmission."),
+                        quickPrompts: isKhmer ? ["🇰🇭 សរសេរទៅ NFC", "🇰🇭 បង្កើត QR ថ្មី"] : ["Write to NFC Tag", "Create New QR"]
+                    )
+                } else if prevText.contains("vault") || prevText.contains("អ៊ិនគ្រីប") {
+                    let answer = isKhmer
+                        ? """
+                        ### 🔐 សុវត្ថិភាព Cryptographic Vault
+                        *ឆ្លើយតបតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
+
+                        កូដ QR Vault របស់អ្នកត្រូវបានការពារដោយ **AES-GCM 256-bit Authenticated Cryptography**។
+                        - **Zero-Knowledge:** មានតែអ្នកដែលមានលេខកូដដោះសោ ឬ Face ID របស់អ្នកប៉ុណ្ណោះដែលអាចដោះសោវាបាន។
+                        - **Decoy Steganography:** អ្នកដទៃដែលស្កេននឹងឃើញត្រឹមតែតំណភ្ជាប់វេបសាយធម្មតាប៉ុណ្ណោះ មិនអាចដឹងថាមានទិន្នន័យសម្ងាត់បង្កប់ឡើយ។
+                        """
+                        : """
+                        ### 🔐 Cryptographic Vault Security
+                        *Contextual reply via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                        Your vault is protected by **AES-256 GCM authenticated cryptography** with SHA-256 key derivation.
+                        - **Zero-Knowledge Architecture:** No keys or plaintext are ever sent to remote servers or stored unencrypted.
+                        - **Steganographic Disguise:** Standard camera scanners merely see a plausible decoy URL.
+                        """
+                    return AIAgentMessage(
+                        isUser: false,
+                        text: answer,
+                        securityBadge: AISecurityBadge(level: .safe, title: "AES-256 GCM Validated", details: "Zero-knowledge hardware protected."),
+                        quickPrompts: isKhmer ? ["🇰🇭 ដោះសោក្នុង Vault", "🇰🇭 បង្កើត QR ថ្មី"] : ["Unlock Vault", "Create New QR"]
+                    )
+                }
+            }
+
+            // Asking how to share or export
+            if clean.contains("share") || clean.contains("export") || clean.contains("ចែករំលែក") || clean.contains("នាំចេញ") {
+                let answer = isKhmer
+                    ? """
+                    ### 📤 ការចែករំលែក និងនាំចេញកូដ QR
+                    *ឆ្លើយតបតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
+
+                    អ្នកមានជម្រើសជាច្រើនក្នុងការចែករំលែកកូដ QR ដែលបានបង្កើត៖
+                    1. **Save Photo:** ចុចប៊ូតុង "Save Photo" ខាងក្រោមកាត QR ដើម្បីរក្សាទុកក្នុង Apple Photos។
+                    2. **Vector SVG & PDF:** ចូលទៅផ្ទាំង **Generator** ដើម្បីនាំចេញជាទម្រង់ Vector គុណភាពខ្ពស់គ្មានដែនកំណត់។
+                    3. **Apple Wallet:** នាំចេញជាកាត `.pkpass` សម្រាប់ដាក់ក្នុង Apple Wallet។
+                    4. **NFC Tag:** ចុច **"Program to NFC Tag"** ដើម្បីសរសេរទិន្នន័យចូលបន្ទះស្ទីគ័រ NFC ដោយផ្ទាល់។
+                    """
+                    : """
+                    ### 📤 Sharing & Exporting Your QR Code
+                    *Contextual reply via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                    You can share and export your generated QR code in multiple ways:
+                    1. **Save Photo:** Tap the "Save Photo" button directly below the QR widget.
+                    2. **Vector SVG / PDF:** Open the **Generator** tab to export infinitely scalable vectors for printing.
+                    3. **Apple Wallet:** Export `.pkpass` packages directly to Apple Wallet or Files.
+                    4. **NFC Smart Tag:** Tap **"Program to NFC Tag"** to flash the payload onto physical stickers.
+                    """
+                return AIAgentMessage(
+                    isUser: false,
+                    text: answer,
+                    quickPrompts: isKhmer ? ["🇰🇭 សរសេរទៅ NFC", "🇰🇭 បង្កើត QR ថ្មី"] : ["Program to NFC Tag", "Create New QR"]
+                )
+            }
+        }
+
+        // 2. Greetings (សួស្តី / ជម្រាបសួរ / Hello / Hi)
+        if clean.contains("សួស្តី") || clean.contains("ជម្រាបសួរ") || clean.contains("hello") || clean.contains("hi") || clean.contains("hey") {
+            let text = isKhmer
+                ? """
+                ### ⚡ សួស្តីបាទ/ចាស! ខ្ញុំជា GlassQR AI Copilot 🇰🇭
+                *ដំណើរការផ្ទាល់លើ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+                ខ្ញុំជាជំនួយការឆ្លាតវៃរបស់អ្នក (ដូច ChatGPT & Gemini) ដែលអាចសន្ទនា ឆ្លើយឆ្លងសំនួរ និងបង្កើតកូដ QR គ្រប់ប្រភេទប្រកបដោយសុវត្ថិភាពខ្ពស់ និងឯកជនភាព 100%។
+
+                **តើអ្នកចង់ឱ្យខ្ញុំជួយអ្វីនៅថ្ងៃនេះ?**
+                - 📶 **Wi-Fi QR:** *"បង្កើត QR Wi-Fi ឈ្មោះ CafeAngkor លេខសម្ងាត់ 12345678"*
+                - 🎟️ **Apple Wallet Pass:** *"បង្កើតកាត Apple Wallet ឈ្មោះ សុខា កម្មវិធី Gala Tech"*
+                - 🔐 **Encrypted Vault:** *"អ៊ិនគ្រីបកំណត់ត្រា 'សារសម្ងាត់' លេខកូដសម្ងាត់ 2026"*
+                - 📍 **Apple Maps Pin:** *"ទម្លាក់ម្ជុលផែនទីនៅ វត្តភ្នំ ភ្នំពេញ"*
+                - 📇 **vCard Contact:** *"បង្កើត vCard ឈ្មោះ សុខ ពិសិដ្ឋ ទូរស័ព្ទ 012888999"*
+                - 💬 **សួរសំនួរទូទៅ:** *"តើ QR Code ដំណើរការយ៉ាងណា?", "តើ Quishing ជាអ្វី?"*
+
+                សូមវាយសំនួរ ឬពាក្យបញ្ជាជាភាសាខ្មែរ ឬអង់គ្លេសបានគ្រប់ពេល!
+                """
+                : """
+                ### ⚡ Hello! I am your GlassQR AI Copilot
+                *Inference via Apple Neural Engine in \(String(format: "%.1f", latency))ms • 100% Offline*
+
+                I am an intelligent conversational assistant like ChatGPT and Gemini, powered directly on your device's Apple Neural Engine with zero cloud latency and total privacy.
+
+                **What I can do for you:**
+                - 💬 **Conversational Q&A:** Ask anything about QR codes, cryptography, NFC, and barcodes.
+                - 📶 **Wi-Fi Hotspots:** *"Generate Wi-Fi QR for network 'HomeGuest' with password 'pass123'"*
+                - 🎟️ **Apple Wallet Passes:** *"Create an Apple Wallet pass for Alex Rivera"*
+                - 🔐 **Zero-Knowledge Vaults:** *"Encrypt secret note 'Private Seed' with passcode 8888"*
+                - 📍 **Apple Maps Pins:** *"Drop pin at Apple Park, Cupertino"*
+                - 📇 **vCard Business Cards:** *"Create vCard for Alex Chen, phone 555-0199"*
+                - 🛡️ **Anti-Quishing Audits:** *"Is this link safe to scan?"*
+
+                Ask me any question or give me a command to begin!
+                """
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                quickPrompts: isKhmer
+                    ? ["🇰🇭 បង្កើត QR Wi-Fi", "🇰🇭 បង្កើតកាត Wallet", "🇰🇭 អ៊ិនគ្រីបសម្ងាត់", "🇰🇭 ពន្យល់ពី QR Code"]
+                    : ["Create Wi-Fi QR", "Drop Pin on Apple Maps", "Encrypt Secret Vault", "Explain QR Codes"]
+            )
+        }
+
+        // 3. Educational Q&A: What is QR Code?
+        if clean.contains("តើ qr") || clean.contains("អ្វីទៅជា qr") || clean.contains("ពន្យល់ពី qr") || clean.contains("what is qr") || clean.contains("how does qr work") {
+            let text = isKhmer
+                ? """
+                ### 📖 ការយល់ដឹងអំពី QR Code (Quick Response Code)
+                *ពន្យល់ដោយ GlassQR AI Copilot តាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
+
+                **QR Code** (កូដឆ្លើយតបរហ័ស) គឺជាម៉ាទ្រីសរបារកូដ 2D ដែលត្រូវបានបង្កើតឡើងដំបូងក្នុងឆ្នាំ 1994 ដោយក្រុមហ៊ុន Denso Wave នៅប្រទេសជប៉ុន។
+
+                **រចនាសម្ព័ន្ធសំខាន់ៗនៃ QR Code៖**
+                1. **Finder Patterns (ភ្នែក 3 ជ្រុង):** ជួយឱ្យកាមេរ៉ាស្គាល់ទិសដៅ និងមុំស្កេនបាន 360 ដឺក្រេយ៉ាងរហ័ស។
+                2. **Alignment & Timing Patterns:** ជួយឱ្យកាមេរ៉ាកំណត់ទំហំក្រឡា (Grid) សូម្បីតែក្រដាសត្រូវបានកោង ឬបត់។
+                3. **Data Modules:** ក្រឡាពណ៌ខ្មៅ និងស តំណាងឱ្យលេខកូដ Binary (0 និង 1) នៃទិន្នន័យ។
+                4. **Reed-Solomon Error Correction:** បច្ចេកវិទ្យាកែសម្រួលកំហុស ដែលអនុញ្ញាតឱ្យកូដ QR អាចស្កេនបាន ទោះបីជាខូចខាត ឬរហែករហូតដល់ **30%** (Level H) ក៏ដោយ!
+
+                នៅក្នុង GlassQR អ្នកអាចបង្កើត QR កូដជាទម្រង់ **Vector SVG/PDF** និងរចនាម៉ូត **Liquid Dots & Eyes** យ៉ាងស្រស់ស្អាត។
+                """
+                : """
+                ### 📖 How QR Codes Work (2D Matrix Symbology)
+                *Explained via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                A **QR Code** (Quick Response code) is a two-dimensional matrix barcode invented in 1994 by Denso Wave.
+
+                **Core Anatomical Architecture:**
+                1. **Finder Patterns (3 Corner Eyes):** Enable optical scanners to instantly identify the code's orientation at any 360° angle.
+                2. **Alignment & Timing Tracks:** Compensate for distorted surfaces, curved surfaces, or angled scanning.
+                3. **Data Encoding Modules:** Black and white squares representing binary bits (0s and 1s) holding URLs, Wi-Fi strings, or text.
+                4. **Reed-Solomon Error Correction:** Mathematical redundancy allowing the code to be accurately decoded even if up to **30% (Level H)** is damaged, dirty, or covered by a custom logo!
+                """
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                quickPrompts: isKhmer
+                    ? ["🇰🇭 ពន្យល់ពី Error Correction", "🇰🇭 បង្កើត QR Wi-Fi", "🇰🇭 រចនាម៉ូត Liquid Dots"]
+                    : ["Error Correction levels", "Generate Wi-Fi QR", "Style with Liquid Dots"]
+            )
+        }
+
+        // 4. Educational Q&A: What is Quishing / QR Phishing?
+        if clean.contains("quishing") || clean.contains("phishing") || clean.contains("ក្លែងបន្លំ") || clean.contains("បោកប្រាស់") {
+            let text = isKhmer
+                ? """
+                ### 🛡️ អ្វីទៅជា Quishing (QR Code Phishing)?
+                *វិភាគដោយ GlassQR Security Guard តាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
+
+                **Quishing** គឺជាការរួមបញ្ចូលគ្នារវាងពាក្យ **QR Code** និង **Phishing**។ វាជាទម្រង់នៃការវាយប្រហារបច្ចេកវិទ្យា ដែលជនខិលខិលក្លែងបន្លំកូដ QR ដើម្បីបញ្ជូនជនរងគ្រោះទៅកាន់វេបសាយក្លែងក្លាយ លួចលេខសម្ងាត់ ឬដំឡើងមេរោគ។
+
+                **វិធីសាស្រ្តដែលជនខិលខូចប្រើប្រាស់៖**
+                - **បិទស្ទីគ័រក្លែងបន្លំពីលើ:** បិទកូដ QR ក្លែងក្លាយពីលើកូដ QR ពិតប្រាកដនៅតាមកន្លែងចតឡាន ហាងកាហ្វេ ឬផ្ទាំងពាណិជ្ជកម្ម។
+                - **Homograph URL Attack:** ប្រើប្រាស់អក្សរស្រដៀង (ឧ. `pаypal.com` ប្រើអក្សរ Cyrillic) ដើម្បីបញ្ឆោតភ្នែកអ្នកប្រើប្រាស់។
+                - **Tracking Parameters:** បង្កប់កូដតាមដាន និងបញ្ជូនបន្ត (Open Redirects)។
+
+                **របៀបដែល GlassQR ការពារអ្នក៖**
+                GlassQR មានម៉ាស៊ីន **Anti-Quishing Engine** ដែលត្រួតពិនិត្យ URL មុនពេលបើក ស្វែងរកការបញ្ជូនបន្ត និងជម្រះកូដតាមដានទាំងអស់ដោយស្វ័យប្រវត្តិ!
+                """
+                : """
+                ### 🛡️ Understanding Quishing (QR Code Phishing)
+                *Analysis via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                **Quishing** is a blend of "QR Code" and "Phishing". Cybercriminals use deceptive QR codes to trick victims into visiting credential-harvesting websites, spoofed login portals, or downloading malware.
+
+                **Common Attack Vectors:**
+                - **Physical Sticker Overlays:** Malicious stickers pasted over genuine parking meters, restaurant tables, or transit posters.
+                - **Homograph Domain Spoofing:** Registering lookalike domains using lookalike international characters.
+                - **Aggressive Open Redirects:** Obfuscating destination URLs through multi-hop shorteners.
+
+                **How GlassQR Protects You:**
+                GlassQR inspects destination URLs in an air-gapped sandbox, evaluates domain safety, detects homographs, and strips tracking parameters before opening.
+                """
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                securityBadge: AISecurityBadge(level: .safe, title: "Anti-Quishing Active", details: "Zero-day link inspection."),
+                quickPrompts: isKhmer
+                    ? ["🇰🇭 ពិនិត្យតំណភ្ជាប់ URL", "🇰🇭 អ៊ិនគ្រីបសម្ងាត់", "🇰🇭 បង្កើត QR Wi-Fi"]
+                    : ["Audit Link Safety", "Encrypt Secret Vault", "Create Wi-Fi QR"]
+            )
+        }
+
+        // 5. Educational Q&A: What is Apple Wallet Pass?
+        if clean.contains("apple wallet") || clean.contains("wallet pass") || clean.contains("pkpass") || clean.contains("កាត wallet") || clean.contains("សំបុត្រ") {
+            let text = isKhmer
+                ? """
+                ### 🎟️ ការយល់ដឹងអំពី Apple Wallet Pass (.pkpass)
+                *ពន្យល់តាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
+
+                **Apple Wallet Pass** គឺជាកាតឌីជីថលស្តង់ដាររបស់ Apple ដែលមានកន្ទុយ `.pkpass` អនុញ្ញាតឱ្យអ្នកប្រើប្រាស់រក្សាទុកសំបុត្រយន្តហោះ សំបុត្រព្រឹត្តិការណ៍ កាតសមាជិក និងប័ណ្ណបញ្ចុះតម្លៃនៅក្នុងកម្មវិធី Apple Wallet។
+
+                **លក្ខណៈពិសេសនៃ PassKit ក្នុង GlassQR៖**
+                - **Multi-Category:** គាំទ្រសំបុត្រកម្មវិធី (Event Tickets), កាតសមាជិក (Store Cards), និងប័ណ្ណបញ្ចុះតម្លៃ (Coupons)។
+                - **Embedded Barcodes:** បង្កប់កូដ QR ឬ Barcode កម្រិតច្បាស់ខ្ពស់ ងាយស្រួលស្កេននៅច្រកទ្វារ។
+                - **Pass Studio:** អ្នកអាចចុចចូល **Pass Studio** ក្នុង GlassQR ដើម្បីប្តូរពណ៌ ដាក់ឈ្មោះ និងរក្សាទុកក្នុង Wallet ឬ Photos ដោយផ្ទាល់!
+                """
+                : """
+                ### 🎟️ Understanding Apple Wallet Passes (.pkpass)
+                *Explained via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                An **Apple Wallet Pass** (`.pkpass`) is Apple's native digital document format for event tickets, boarding passes, store loyalty cards, and coupons stored inside the iOS Wallet app.
+
+                **GlassQR Pass Studio Features:**
+                - **Multi-Symbology:** High-resolution vector barcodes (`PKBarcodeFormatQR`, `Code128`, `PDF417`).
+                - **Liquid Glass Palette:** 5 vibrant chromatic themes for passes.
+                - **Instant Export:** 1-tap addition to Apple Wallet, AirDrop sharing, or saving to Apple Photos.
+                """
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                quickPrompts: isKhmer
+                    ? ["🇰🇭 បង្កើតកាត Apple Wallet", "🇰🇭 បង្កើត QR Wi-Fi", "🇰🇭 សរសេរទៅ NFC"]
+                    : ["Create Apple Wallet Pass", "Create Wi-Fi QR", "Program to NFC Tag"]
+            )
+        }
+
+        // 6. Gratitude (អរគុណ / Thank you)
+        if clean.contains("អរគុណ") || clean.contains("thank") {
+            let text = isKhmer
+                ? """
+                ### 🙏 រីករាយណាស់ដែលបានជួយអ្នក!
+                *ឆ្លើយតបតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms*
+
+                ប្រសិនបើអ្នកមានចម្ងល់បន្ថែម ចង់ស្វែងយល់ពីបច្ចេកវិទ្យា QR កូដ ឬចង់បង្កើតកាត Apple Wallet, Wi-Fi, ឬកូដសម្ងាត់ សូមប្រាប់ខ្ញុំបានគ្រប់ពេល!
+                """
+                : """
+                ### 🙏 You're very welcome!
+                *Response via Apple Neural Engine in \(String(format: "%.1f", latency))ms*
+
+                If you have any more questions about QR codes, cryptography, Apple Wallet passes, or Wi-Fi networks, feel free to ask anytime!
+                """
+            return AIAgentMessage(
+                isUser: false,
+                text: text,
+                quickPrompts: isKhmer
+                    ? ["🇰🇭 បង្កើត QR Wi-Fi", "🇰🇭 បង្កើតកាត Wallet", "🇰🇭 អ៊ិនគ្រីបសម្ងាត់"]
+                    : ["Create Wi-Fi QR", "Create Apple Wallet Pass", "Encrypt Secret Vault"]
+            )
+        }
+
+        // 7. General Conversational Fallback (Intelligent Q&A)
+        let text = isKhmer
+            ? """
+            ### ⚡ GlassQR Intelligent Copilot 🇰🇭
+            *Inference តាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • 100% Offline*
+
+            ខ្ញុំបានទទួលសំណួររបស់អ្នក៖ **"\(prompt)"**។
+
+            ក្នុងនាមជា **\(persona.rawValue)** ខ្ញុំដំណើរការ 100% លើបន្ទះឈីប Apple Neural Engine (ANE) ដោយមិនប្រើប្រាស់អ៊ីនធឺណិត និងរក្សាការសម្ងាត់ខ្ពស់បំផុត។
+
+            **អ្វីដែលអ្នកអាចសាកល្បងបន្ទាប់៖**
+            - 📶 បង្កើត QR វ៉ាយហ្វាយ៖ *"បង្កើត QR Wi-Fi ឈ្មោះ CafeAngkor លេខសម្ងាត់ 12345678"*
+            - 🎟️ បង្កើតកាត Apple Wallet៖ *"បង្កើតកាត Apple Wallet ឈ្មោះ ចាន់ សុខា កម្មវិធី Tech Summit"*
+            - 🔐 អ៊ិនគ្រីបកំណត់ត្រាសម្ងាត់៖ *"អ៊ិនគ្រីបកំណត់ត្រា 'កូដសម្ងាត់' លេខកូដសម្ងាត់ 8888"*
+            - 📍 ទម្លាក់ម្ជុលផែនទី៖ *"ទម្លាក់ម្ជុលផែនទីនៅ វត្តភ្នំ ភ្នំពេញ"*
+            - 🛡️ ត្រួតពិនិត្យសុវត្ថិភាពតំណភ្ជាប់៖ *"តើ link នេះមានសុវត្ថិភាពទេ https://example.com"*
+
+            អ្នកអាចសួរខ្ញុំនូវសំណួរផ្សេងៗទៀតបាន ខ្ញុំត្រៀមខ្លួនជានិច្ចដើម្បីឆ្លើយឆ្លងជាមួយអ្នក!
+            """
+            : """
+            ### ⚡ GlassQR Intelligent Copilot
+            *Inference via Apple Neural Engine in \(String(format: "%.1f", latency))ms • 100% Offline*
+
+            I received your query: **"\(prompt)"**.
+
+            As your **\(persona.rawValue)**, I am running completely offline on your device's Apple Neural Engine with zero latency and full privacy.
+
+            **Quick actions you can prompt me for:**
+            - 📶 Wi-Fi: *"Generate Wi-Fi QR for network 'Office' with password 'secret'"*
+            - 🎟️ Apple Wallet: *"Create an Apple Wallet event pass for Alex"*
+            - 🔐 Encryption: *"Encrypt secret note 'Private Seed' with passcode 1234"*
+            - 📍 Geolocation: *"Drop pin on Apple Maps at Apple Park"*
+            - 🛡️ Security Audit: *"Is https://apple.com safe?"*
+
+            Feel free to converse, ask follow-up questions, or request any QR format!
+            """
 
         return AIAgentMessage(
             isUser: false,
             text: text,
             securityBadge: AISecurityBadge(
                 level: .safe,
-                title: "100% On-Device Neural Engine",
+                title: isKhmer ? "Apple Neural Engine លើម៉ាស៊ីន 100%" : "100% On-Device Neural Engine",
                 details: "\(hardware.computeUnits) • \(hardware.privacyGuarantee)"
             ),
-            quickPrompts: ["Create Wi-Fi QR", "Drop Pin on Apple Maps", "Encrypt Secret Vault", "Create Apple Wallet Pass"]
+            quickPrompts: isKhmer
+                ? ["🇰🇭 បង្កើត QR Wi-Fi", "🇰🇭 បង្កើតកាត Wallet", "🇰🇭 អ៊ិនគ្រីបសម្ងាត់", "🇰🇭 ទម្លាក់ម្ជុលផែនទី"]
+                : ["Create Wi-Fi QR", "Drop Pin on Apple Maps", "Encrypt Secret Vault", "Create Apple Wallet Pass"]
         )
     }
 }

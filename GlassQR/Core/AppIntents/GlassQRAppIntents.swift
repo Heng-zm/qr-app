@@ -205,7 +205,7 @@ public struct EncryptToQRIntent: AppIntent {
 
 // MARK: - 4. Open Camera Scanner Intent
 
-public struct OpenScannerIntent: OpenIntent {
+public struct OpenScannerIntent: AppIntent {
     public static var title: LocalizedStringResource = "Open QR Scanner"
     public static var description = IntentDescription("Launches GlassQR directly into camera scanning mode.")
     public static var openAppWhenRun: Bool = true
