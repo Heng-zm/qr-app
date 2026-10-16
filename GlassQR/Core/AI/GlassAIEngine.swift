@@ -117,8 +117,8 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
             }
         }
 
-        // On-Device Intelligent Neural Heuristics Engine
-        return processOfflineHeuristics(trimmed)
+        // On-Device CoreML Small Language Model & Apple Neural Engine Pipeline (100% Offline)
+        return await CoreMLSLMEngine.shared.generateResponse(prompt: trimmed, persona: persona)
     }
 
     // MARK: - Multi-Modal Visual Inspection (Photo & Camera)

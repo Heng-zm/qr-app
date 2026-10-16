@@ -25,6 +25,7 @@ public struct ScanResultSheetView: View {
     @State private var showTranslationSheet: Bool = false
     @State private var showNFCSheet: Bool = false
     @State private var showSecretVaultUnlockSheet: Bool = false
+    @State private var showWalletPassSheet: Bool = false
 
     public init(result: ScanResultItem) {
         self.result = result
@@ -140,17 +141,17 @@ public struct ScanResultSheetView: View {
                         }
                         .buttonStyle(.glass)
 
-                        // Secondary Tools: Translation & NFC Write
-                        HStack(spacing: 10) {
+                        // Secondary Tools: Translation, NFC Write & Apple Wallet Pass
+                        HStack(spacing: 8) {
                             Button {
                                 showTranslationSheet = true
                             } label: {
-                                HStack(spacing: 6) {
+                                HStack(spacing: 5) {
                                     Image(systemName: "globe")
-                                        .font(.system(size: 13, weight: .bold))
+                                        .font(.system(size: 12, weight: .bold))
                                         .foregroundStyle(Color.cyan)
                                     Text("Translate")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 38)
@@ -160,12 +161,27 @@ public struct ScanResultSheetView: View {
                             Button {
                                 showNFCSheet = true
                             } label: {
-                                HStack(spacing: 6) {
+                                HStack(spacing: 5) {
                                     Image(systemName: "wave.3.forward.circle.fill")
-                                        .font(.system(size: 13, weight: .bold))
+                                        .font(.system(size: 12, weight: .bold))
                                         .foregroundStyle(Color.green)
                                     Text("Write NFC")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 38)
+                            }
+                            .buttonStyle(.glass)
+
+                            Button {
+                                showWalletPassSheet = true
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "wallet.pass.fill")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(Color.orange)
+                                    Text("Pass")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 38)
@@ -209,6 +225,12 @@ public struct ScanResultSheetView: View {
             SecretVaultUnlockSheetView(
                 isPresented: $showSecretVaultUnlockSheet,
                 encryptedPayload: result.payload
+            )
+        }
+        .sheet(isPresented: $showWalletPassSheet) {
+            WalletPassSheetView(
+                isPresented: $showWalletPassSheet,
+                initialPayload: result.payload
             )
         }
     }

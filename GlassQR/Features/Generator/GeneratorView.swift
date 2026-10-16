@@ -87,6 +87,13 @@ public struct GeneratorView: View {
     @State private var customLogoItem: PhotosPickerItem? = nil
     @State private var customLogoImage: UIImage? = nil
 
+    // Liquid Dot & Custom Eye Styling
+    @State private var selectedDotShape: QRDotShape = .squircle
+    @State private var selectedEyeFrame: QREyeFrameStyle = .rounded
+    @State private var selectedEyePupil: QREyePupilStyle = .squircle
+    @State private var selectedGradient: QRColorGradient = .none
+    @State private var selectedCardFrame: QRCardFrameStyle = .none
+
     // Raw Inputs
     @State private var inputText: String = "https://apple.com"
 
@@ -134,6 +141,9 @@ public struct GeneratorView: View {
 
     // NFC Smart Tag Studio
     @State private var showNFCSheet: Bool = false
+
+    // Apple Wallet Pass Studio
+    @State private var showWalletPassSheet: Bool = false
 
     private let generatorEngine = CrispQRRenderer()
 
@@ -209,6 +219,12 @@ public struct GeneratorView: View {
                         showNFCSheet = true
                     } label: {
                         Label("Write to Physical NFC Tag", systemImage: "wave.3.forward.circle.fill")
+                    }
+
+                    Button {
+                        showWalletPassSheet = true
+                    } label: {
+                        Label("Create Apple Wallet Pass (.pkpass)", systemImage: "wallet.pass.fill")
                     }
                 } label: {
                     HStack(spacing: 5) {
@@ -286,6 +302,12 @@ public struct GeneratorView: View {
                 locationName: $locationName
             )
         }
+        .sheet(isPresented: $showWalletPassSheet) {
+            WalletPassSheetView(
+                isPresented: $showWalletPassSheet,
+                initialPayload: currentPayload
+            )
+        }
         .onAppear {
             renderCurrentQR()
         }
@@ -297,6 +319,21 @@ public struct GeneratorView: View {
             } catch {}
         }
         .onChange(of: selectedTheme) { _, _ in
+            renderCurrentQR()
+        }
+        .onChange(of: selectedDotShape) { _, _ in
+            renderCurrentQR()
+        }
+        .onChange(of: selectedEyeFrame) { _, _ in
+            renderCurrentQR()
+        }
+        .onChange(of: selectedEyePupil) { _, _ in
+            renderCurrentQR()
+        }
+        .onChange(of: selectedGradient) { _, _ in
+            renderCurrentQR()
+        }
+        .onChange(of: selectedCardFrame) { _, _ in
             renderCurrentQR()
         }
         .onChange(of: selectedBadge) { _, _ in
@@ -680,6 +717,18 @@ public struct GeneratorView: View {
             Divider()
                 .background(Color.white.opacity(0.08))
 
+            // Liquid Dot & Custom Eye Row
+            dotAndEyeStylingRow
+
+            Divider()
+                .background(Color.white.opacity(0.08))
+
+            // Gradient & "Scan Me" Frame Row
+            gradientAndFrameRow
+
+            Divider()
+                .background(Color.white.opacity(0.08))
+
             badgeAndLogoRow
         }
         .padding(.horizontal, 16)
@@ -692,6 +741,161 @@ public struct GeneratorView: View {
                         .stroke(Color.white.opacity(0.07), lineWidth: 1)
                 )
         )
+    }
+
+    private var dotAndEyeStylingRow: some View {
+        HStack(spacing: 10) {
+            // Dot Module Shape Menu
+            Menu {
+                ForEach(QRDotShape.allCases) { shape in
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            selectedDotShape = shape
+                        }
+                    } label: {
+                        HStack {
+                            Label(shape.rawValue, systemImage: shape.icon)
+                            if selectedDotShape == shape {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: selectedDotShape.icon)
+                        .font(.system(size: 11))
+                    Text(selectedDotShape.rawValue)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .foregroundStyle(Color.white.opacity(0.85))
+                .background(Capsule().fill(Color.white.opacity(0.08)))
+            }
+
+            Spacer()
+
+            // Eye Frame & Pupil Controls
+            Menu {
+                Section("Eye Outer Frame") {
+                    ForEach(QREyeFrameStyle.allCases) { frame in
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                selectedEyeFrame = frame
+                            }
+                        } label: {
+                            HStack {
+                                Label(frame.rawValue, systemImage: frame.icon)
+                                if selectedEyeFrame == frame {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Section("Eye Center Pupil") {
+                    ForEach(QREyePupilStyle.allCases) { pupil in
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                selectedEyePupil = pupil
+                            }
+                        } label: {
+                            HStack {
+                                Label(pupil.rawValue, systemImage: pupil.icon)
+                                if selectedEyePupil == pupil {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "eye.fill")
+                        .font(.system(size: 11))
+                    Text("Eyes: \(selectedEyeFrame.rawValue)")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .foregroundStyle(Color.white.opacity(0.85))
+                .background(Capsule().fill(Color.white.opacity(0.08)))
+            }
+        }
+    }
+
+    private var gradientAndFrameRow: some View {
+        HStack(spacing: 10) {
+            // Chromatic Gradient Menu
+            Menu {
+                ForEach(QRColorGradient.allCases) { grad in
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            selectedGradient = grad
+                        }
+                    } label: {
+                        HStack {
+                            Text(grad.rawValue)
+                            if selectedGradient == grad {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "paintpalette.fill")
+                        .font(.system(size: 11))
+                    Text(selectedGradient == .none ? "Color: Solid" : "Grad: \(selectedGradient.rawValue)")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .foregroundStyle(Color.white.opacity(0.85))
+                .background(Capsule().fill(Color.white.opacity(0.08)))
+            }
+
+            Spacer()
+
+            // Card Frame / Banner Menu
+            Menu {
+                ForEach(QRCardFrameStyle.allCases) { frame in
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            selectedCardFrame = frame
+                        }
+                    } label: {
+                        HStack {
+                            Text(frame.rawValue)
+                            if selectedCardFrame == frame {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "rectangle.inset.filled")
+                        .font(.system(size: 11))
+                    Text(selectedCardFrame == .none ? "Frame: None" : selectedCardFrame.rawValue)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .foregroundStyle(Color.white.opacity(0.85))
+                .background(Capsule().fill(Color.white.opacity(0.08)))
+            }
+        }
     }
 
     private var correctionLevelMenu: some View {
@@ -903,6 +1107,12 @@ public struct GeneratorView: View {
                 } label: {
                     Label("Write to Physical NFC Tag", systemImage: "wave.3.forward.circle.fill")
                 }
+
+                Button {
+                    showWalletPassSheet = true
+                } label: {
+                    Label("Create Apple Wallet Pass (.pkpass)", systemImage: "wallet.pass.fill")
+                }
             } label: {
                 HStack(spacing: 4) {
                     Text("Export")
@@ -922,7 +1132,11 @@ public struct GeneratorView: View {
             text: currentPayload,
             foregroundColor: selectedTheme.uiColor,
             backgroundColor: .white,
-            correctionLevel: selectedCorrectionLevel
+            correctionLevel: selectedCorrectionLevel,
+            dotShape: selectedDotShape,
+            eyeFrame: selectedEyeFrame,
+            eyePupil: selectedEyePupil,
+            gradient: selectedGradient
         ) else { return }
 
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("GlassQR_Vector.pdf")
@@ -965,7 +1179,11 @@ public struct GeneratorView: View {
             text: currentPayload,
             foregroundColor: selectedTheme.uiColor,
             backgroundColor: .white,
-            correctionLevel: selectedCorrectionLevel
+            correctionLevel: selectedCorrectionLevel,
+            dotShape: selectedDotShape,
+            eyeFrame: selectedEyeFrame,
+            eyePupil: selectedEyePupil,
+            gradient: selectedGradient
         ) else { return }
 
         UIPasteboard.general.string = svg
@@ -1132,7 +1350,12 @@ public struct GeneratorView: View {
             backgroundColor: .white,
             centerIconName: selectedBadge.iconName,
             customLogo: customLogoImage,
-            correctionLevel: selectedCorrectionLevel
+            correctionLevel: selectedCorrectionLevel,
+            dotShape: selectedDotShape,
+            eyeFrame: selectedEyeFrame,
+            eyePupil: selectedEyePupil,
+            gradient: selectedGradient,
+            cardFrame: selectedCardFrame
         )
     }
 }

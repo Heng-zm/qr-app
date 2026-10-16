@@ -38,6 +38,19 @@
 	<array>
 		<string>NDEF</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.antigravity.GlassQR</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>glassqr</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

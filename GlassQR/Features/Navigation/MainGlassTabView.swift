@@ -78,6 +78,21 @@ public struct MainGlassTabView: View {
                 isKeyboardVisible = false
             }
         }
+        .onOpenURL { url in
+            guard url.scheme == "glassqr" else { return }
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.72)) {
+                switch url.host {
+                case "scan":
+                    selectedTab = .scanner
+                case "generate":
+                    selectedTab = .generator
+                case "assistant", "ai":
+                    selectedTab = .assistant
+                default:
+                    break
+                }
+            }
+        }
     }
 
     // MARK: - Native iOS 26 Liquid Glass Bottom Nav

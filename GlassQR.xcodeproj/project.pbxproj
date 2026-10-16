@@ -39,6 +39,10 @@
 		1B0000300000000000000030 /* MapLocationPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000310000000000000031 /* MapLocationPickerView.swift */; };
 		1B0000310000000000000031 /* DocumentCameraRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000320000000000000032 /* DocumentCameraRepresentable.swift */; };
 		1B0000320000000000000032 /* DocumentScannerSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000330000000000000033 /* DocumentScannerSheetView.swift */; };
+		1B0000330000000000000033 /* GlassPassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000340000000000000034 /* GlassPassEngine.swift */; };
+		1B0000340000000000000034 /* WalletPassSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000350000000000000035 /* WalletPassSheetView.swift */; };
+		1B0000350000000000000035 /* GlassQRAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000360000000000000036 /* GlassQRAppIntents.swift */; };
+		1B0000360000000000000036 /* CoreMLSLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000370000000000000037 /* CoreMLSLMEngine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +80,10 @@
 		1A0000310000000000000031 /* MapLocationPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapLocationPickerView.swift; sourceTree = "<group>"; };
 		1A0000320000000000000032 /* DocumentCameraRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCameraRepresentable.swift; sourceTree = "<group>"; };
 		1A0000330000000000000033 /* DocumentScannerSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerSheetView.swift; sourceTree = "<group>"; };
+		1A0000340000000000000034 /* GlassPassEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassPassEngine.swift; sourceTree = "<group>"; };
+		1A0000350000000000000035 /* WalletPassSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletPassSheetView.swift; sourceTree = "<group>"; };
+		1A0000360000000000000036 /* GlassQRAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassQRAppIntents.swift; sourceTree = "<group>"; };
+		1A0000370000000000000037 /* CoreMLSLMEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMLSLMEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,8 +155,26 @@
 				1C0000200000000000000020 /* NFC */,
 				1C0000230000000000000023 /* Crypto */,
 				1C0000240000000000000024 /* DocumentScanner */,
+				1C0000250000000000000025 /* Wallet */,
+				1C0000270000000000000027 /* AppIntents */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		1C0000250000000000000025 /* Wallet */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000340000000000000034 /* GlassPassEngine.swift */,
+			);
+			path = Wallet;
+			sourceTree = "<group>";
+		};
+		1C0000270000000000000027 /* AppIntents */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000360000000000000036 /* GlassQRAppIntents.swift */,
+			);
+			path = AppIntents;
 			sourceTree = "<group>";
 		};
 		1C0000240000000000000024 /* DocumentScanner */ = {
@@ -195,6 +221,7 @@
 			isa = PBXGroup;
 			children = (
 				1A0000210000000000000021 /* GlassAIEngine.swift */,
+				1A0000370000000000000037 /* CoreMLSLMEngine.swift */,
 			);
 			path = AI;
 			sourceTree = "<group>";
@@ -232,9 +259,18 @@
 				1C0000170000000000000017 /* Assistant */,
 				1C0000210000000000000021 /* Translation */,
 				1C0000220000000000000022 /* NFC */,
+				1C0000260000000000000026 /* Wallet */,
 				1C0000140000000000000014 /* Navigation */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		1C0000260000000000000026 /* Wallet */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000350000000000000035 /* WalletPassSheetView.swift */,
+			);
+			path = Wallet;
 			sourceTree = "<group>";
 		};
 		1C0000210000000000000021 /* Translation */ = {
@@ -413,6 +449,10 @@
 				1B0000300000000000000030 /* MapLocationPickerView.swift in Sources */,
 				1B0000310000000000000031 /* DocumentCameraRepresentable.swift in Sources */,
 				1B0000320000000000000032 /* DocumentScannerSheetView.swift in Sources */,
+				1B0000330000000000000033 /* GlassPassEngine.swift in Sources */,
+				1B0000340000000000000034 /* WalletPassSheetView.swift in Sources */,
+				1B0000350000000000000035 /* GlassQRAppIntents.swift in Sources */,
+				1B0000360000000000000036 /* CoreMLSLMEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
