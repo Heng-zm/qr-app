@@ -89,8 +89,8 @@ public struct ScannerView: View {
             )
             .ignoresSafeArea()
 
-            // Clean Dark Frosted Vignette Cutout (Pixel-locked with reticle)
-            vignetteCutout
+            // Unified Pixel-Locked Viewfinder (Vignette Mask + Border + Reticle Brackets + Laser)
+            viewfinderOverlay
 
             // Tap-to-focus Pulsing Ring
             if showFocusRing, let point = focusPoint {
@@ -98,11 +98,9 @@ public struct ScannerView: View {
                     .stroke(Color.white.opacity(0.9), lineWidth: 1.5)
                     .frame(width: 56, height: 56)
                     .position(point)
+                    .ignoresSafeArea()
                     .transition(.scale.combined(with: .opacity))
             }
-
-            // Central Viewfinder Reticle & Laser (Identical offset and size as cutout)
-            centralViewfinder
 
             // Controls Overlay
             VStack(spacing: 0) {
@@ -139,6 +137,7 @@ public struct ScannerView: View {
         }
         .navigationTitle("Scanner")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .sensoryFeedback(.success, trigger: scanFeedbackTrigger)
         .sheet(item: $activeScanResult) { result in
             ScanResultSheetView(result: result)
@@ -373,37 +372,52 @@ public struct ScannerView: View {
         .presentationDetents([.medium, .large])
     }
 
-    private var vignetteCutout: some View {
-        Color.black.opacity(0.48)
-            .mask {
-                Rectangle()
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .frame(width: cutoutSize, height: cutoutSize)
-                            .offset(y: -24)
-                            .blendMode(.destinationOut)
-                    }
-            }
-            .allowsHitTesting(false)
-            .ignoresSafeArea()
-    }
-
-    private var centralViewfinder: some View {
+    private var viewfinderOverlay: some View {
         ZStack {
-            // Clean Reticle Brackets
-            ScannerReticleView()
-                .frame(width: cutoutSize, height: cutoutSize)
+            // Dark Frosted Vignette Mask with central cutout
+            Color.black.opacity(0.48)
+                .mask {
+                    Rectangle()
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .frame(width: cutoutSize, height: cutoutSize)
+                                .blendMode(.destinationOut)
+                        }
+                }
 
-            // Sleek Scan Laser Line
-            if !isPaused {
-                ScanningLaserView()
-                    .frame(width: cutoutSize - 16, height: cutoutSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            // Unified Central Viewfinder: Squircle border, corner reticle brackets, and laser sweep
+            ZStack {
+                // Subtle high-tech squircle glass border
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.22),
+                                Color.white.opacity(0.06),
+                                Color.cyan.opacity(0.22),
+                                Color.white.opacity(0.06)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+
+                // High-precision minimalist corner brackets & center crosshair
+                ScannerReticleView(cornerRadius: 28)
+
+                // Sleek animated scan laser sweep
+                if !isPaused {
+                    ScanningLaserView(travelRange: (cutoutSize / 2.0) - 15)
+                        .frame(width: cutoutSize - 16, height: cutoutSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                }
             }
+            .frame(width: cutoutSize, height: cutoutSize)
         }
-        .frame(width: cutoutSize, height: cutoutSize)
         .offset(y: -24)
         .allowsHitTesting(false)
+        .ignoresSafeArea()
     }
 
     private var batchReviewChip: some View {
@@ -508,7 +522,25 @@ public struct ScannerView: View {
                 // Photo Library QR Scanner
                 photoPlatterButton
             }
-            .padding(.horizontal, 4)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 6)
+            .background(
+                Capsule()
+                    .fill(Color(red: 0.09, green: 0.09, blue: 0.11).opacity(0.72))
+                    .overlay(
+                        Capsule()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.22), Color.white.opacity(0.06)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
+            )
+            .padding(.horizontal, 8)
         }
     }
 
@@ -800,13 +832,19 @@ private struct ScanHistoryView: View {
 
     @State private var selectedFilter: HistoryCategoryFilter = .all
     @State private var searchText: String = ""
+    @State private var decodedItems: [ScanResultItem] = []
 
     var allItems: [ScanResultItem] {
-        guard let data = historyData.data(using: .utf8),
-              let list = try? JSONDecoder().decode([ScanResultItem].self, from: data) else {
-            return []
+        decodedItems
+    }
+
+    private func reloadHistoryItems() {
+        if let data = historyData.data(using: .utf8),
+           let list = try? JSONDecoder().decode([ScanResultItem].self, from: data) {
+            decodedItems = list
+        } else {
+            decodedItems = []
         }
-        return list
     }
 
     var filteredItems: [ScanResultItem] {
@@ -959,6 +997,12 @@ private struct ScanHistoryView: View {
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                 }
+            }
+            .onAppear {
+                reloadHistoryItems()
+            }
+            .onChange(of: historyData) { _, _ in
+                reloadHistoryItems()
             }
         }
     }

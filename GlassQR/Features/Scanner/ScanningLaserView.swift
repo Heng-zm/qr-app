@@ -8,9 +8,13 @@
 import SwiftUI
 
 public struct ScanningLaserView: View {
-    @State private var scanOffset: CGFloat = -115
+    public var travelRange: CGFloat
+    @State private var scanOffset: CGFloat
 
-    public init() {}
+    public init(travelRange: CGFloat = 115) {
+        self.travelRange = travelRange
+        self._scanOffset = State(initialValue: -travelRange)
+    }
 
     public var body: some View {
         ZStack {
@@ -54,7 +58,7 @@ public struct ScanningLaserView: View {
                 .easeInOut(duration: 2.2)
                 .repeatForever(autoreverses: true)
             ) {
-                scanOffset = 115
+                scanOffset = travelRange
             }
         }
     }
