@@ -284,7 +284,17 @@ public final class CrispQRRenderer: @unchecked Sendable {
 
     private func hexString(from color: UIColor) -> String {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return String(format: "#%02lX%02lX%02lX", lroundf(Float(r * 255)), lroundf(Float(g * 255)), lroundf(Float(b * 255)))
+        if color.getRed(&r, green: &g, blue: &b, alpha: &a) {
+            let rInt = max(0, min(255, lroundf(Float(r * 255))))
+            let gInt = max(0, min(255, lroundf(Float(g * 255))))
+            let bInt = max(0, min(255, lroundf(Float(b * 255))))
+            return String(format: "#%02X%02X%02X", rInt, gInt, bInt)
+        }
+        var white: CGFloat = 0
+        if color.getWhite(&white, alpha: &a) {
+            let wInt = max(0, min(255, lroundf(Float(white * 255))))
+            return String(format: "#%02X%02X%02X", wInt, wInt, wInt)
+        }
+        return "#000000"
     }
 }

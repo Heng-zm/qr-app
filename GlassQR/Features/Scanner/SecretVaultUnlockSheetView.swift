@@ -12,7 +12,7 @@ public struct SecretVaultUnlockSheetView: View {
     @State private var isUnlocked: Bool = false
     @State private var copiedNotice: Bool = false
     @State private var countdownRemaining: Int = 30
-    @State private var countdownTimer: Timer? = nil
+    @State private var countdownTask: Task<Void, Never>? = nil
 
     public init(
         isPresented: Binding<Bool>,
@@ -58,7 +58,7 @@ public struct SecretVaultUnlockSheetView: View {
                 }
             }
             .onDisappear {
-                countdownTimer?.invalidate()
+                countdownTask?.cancel()
             }
         }
         .presentationDetents([.medium, .large])
@@ -282,20 +282,23 @@ public struct SecretVaultUnlockSheetView: View {
 
     private func startCountdown() {
         countdownRemaining = 30
-        countdownTimer?.invalidate()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            DispatchQueue.main.async {
-                if self.countdownRemaining > 1 {
-                    self.countdownRemaining -= 1
+        countdownTask?.cancel()
+        countdownTask = Task { @MainActor in
+            while countdownRemaining > 0 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                if countdownRemaining > 1 {
+                    countdownRemaining -= 1
                 } else {
-                    self.lockAndWipe()
+                    lockAndWipe()
+                    break
                 }
             }
         }
     }
 
     private func lockAndWipe() {
-        countdownTimer?.invalidate()
+        countdownTask?.cancel()
         withAnimation {
             decryptedSecret = nil
             isUnlocked = false

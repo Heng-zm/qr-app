@@ -43,14 +43,16 @@ public struct DocumentCameraRepresentable: UIViewControllerRepresentable {
         return fallback
     }
 
-    public func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    public func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        context.coordinator.parent = self
+    }
 
     public func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
 
     public final class Coordinator: NSObject {
-        let parent: DocumentCameraRepresentable
+        var parent: DocumentCameraRepresentable
 
         init(parent: DocumentCameraRepresentable) {
             self.parent = parent

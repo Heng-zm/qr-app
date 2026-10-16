@@ -52,6 +52,7 @@ public struct LiveTextScannerRepresentable: UIViewControllerRepresentable {
     }
 
     public func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        context.coordinator.parent = self
         #if !targetEnvironment(simulator)
         if #available(iOS 16.0, *), let scanner = uiViewController as? DataScannerViewController {
             if isScanning {
@@ -68,7 +69,7 @@ public struct LiveTextScannerRepresentable: UIViewControllerRepresentable {
     }
 
     public final class Coordinator: NSObject {
-        let parent: LiveTextScannerRepresentable
+        var parent: LiveTextScannerRepresentable
 
         init(_ parent: LiveTextScannerRepresentable) {
             self.parent = parent

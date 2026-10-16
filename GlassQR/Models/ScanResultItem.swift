@@ -187,13 +187,17 @@ public struct ScanResultItem: Identifiable, Equatable, Sendable, Codable {
     }
 
     private func extractWifiField(_ field: String, from text: String) -> String? {
-        let pattern = "\(field):([^;]*);"
+        let pattern = "(?i)\(field):([^;]*?)(?:;|$)"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
               let range = Range(match.range(at: 1), in: text) else {
             return nil
         }
-        return String(text[range])
+        let raw = String(text[range])
+        return raw
+            .replacingOccurrences(of: "\\;", with: ";")
+            .replacingOccurrences(of: "\\:", with: ":")
+            .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
     private func extractVCardField(_ field: String, from text: String) -> String? {

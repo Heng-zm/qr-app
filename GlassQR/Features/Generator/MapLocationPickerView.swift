@@ -492,6 +492,8 @@ struct DroppableMapViewRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ mapView: MKMapView, context: Context) {
+        context.coordinator.parent = self
+
         if mapView.mapType != mapType {
             mapView.mapType = mapType
         }

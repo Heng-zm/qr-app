@@ -799,23 +799,25 @@ public struct ScannerView: View {
               let uiImage = UIImage(data: data),
               let ciImage = CIImage(image: uiImage) else { return }
 
-        let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: nil, options: [CIDetectorAccuracy: CIDetectorAccuracyHigh])
-        let features = detector?.features(in: ciImage) ?? []
+        // Vision Barcode / QR detection across all symbologies
+        let barcodeRequest = VNDetectBarcodesRequest()
+        let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
 
-        for feature in features {
-            if let qrFeature = feature as? CIQRCodeFeature, let message = qrFeature.messageString {
-                await MainActor.run {
-                    handleDetectedCode(message)
-                }
-                return
+        if (try? handler.perform([barcodeRequest])) != nil,
+           let observations = barcodeRequest.results,
+           let firstBarcode = observations.first,
+           let payload = firstBarcode.payloadStringValue {
+            let symbology = CameraViewController.humanReadableSymbology(for: firstBarcode.symbology)
+            await MainActor.run {
+                handleDetectedCode(payload, symbology: symbology)
             }
+            return
         }
 
         // Vision OCR fallback if no barcode/QR is found in the photo
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
-        let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
         if (try? handler.perform([request])) != nil,
            let observations = request.results,
            !observations.isEmpty {

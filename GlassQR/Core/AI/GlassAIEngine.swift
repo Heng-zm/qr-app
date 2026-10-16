@@ -888,7 +888,9 @@ public final class GlassAIEngine: NSObject, ObservableObject, AVSpeechSynthesize
             urlStr = "https://" + String(prompt[range])
         }
 
-        let url = URL(string: urlStr) ?? URL(string: "https://apple.com")!
+        urlStr = urlStr.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:!?)'\""))
+        let safeURL = URL(string: urlStr) ?? URL(string: urlStr.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "") ?? URL(string: "https://apple.com")
+        let url = safeURL ?? URL(fileURLWithPath: "/")
         let badge = evaluateURLSafety(url)
         let suggested = AISuggestedQR(
             title: url.host ?? urlStr,

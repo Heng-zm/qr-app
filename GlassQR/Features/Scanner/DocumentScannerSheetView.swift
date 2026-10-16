@@ -52,6 +52,8 @@ public struct DocumentScannerSheetView: View {
     @State private var showAIAssistant: Bool = false
     @State private var isTextExpanded: Bool = false
 
+    private static let sharedCIContext = CIContext(options: nil)
+
     public init(
         isPresented: Binding<Bool>,
         onApplyToGenerator: ((String) -> Void)? = nil
@@ -613,7 +615,16 @@ public struct DocumentScannerSheetView: View {
     }
 
     private func recognizeTextFromImage(_ image: UIImage) async -> String {
-        guard let cgImage = image.cgImage else { return "" }
+        let orientation = CGImagePropertyOrientation(image.imageOrientation)
+        let handler: VNImageRequestHandler
+        if let cgImage = image.cgImage {
+            handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
+        } else if let ciImage = image.ciImage ?? CIImage(image: image) {
+            handler = VNImageRequestHandler(ciImage: ciImage, orientation: orientation, options: [:])
+        } else {
+            return ""
+        }
+
         return await withCheckedContinuation { continuation in
             let request = VNRecognizeTextRequest { req, error in
                 guard error == nil, let results = req.results as? [VNRecognizedTextObservation] else {
@@ -626,7 +637,6 @@ public struct DocumentScannerSheetView: View {
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
 
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
                 try handler.perform([request])
             } catch {
@@ -637,7 +647,7 @@ public struct DocumentScannerSheetView: View {
 
     private func applyFilter(_ filter: DocumentImageFilter, to image: UIImage) -> UIImage {
         guard filter != .original, let ciImage = CIImage(image: image) else { return image }
-        let context = CIContext(options: nil)
+        let context = Self.sharedCIContext
 
         switch filter {
         case .original:
@@ -699,5 +709,22 @@ public struct DocumentScannerSheetView: View {
 
     private func triggerHaptic() {
         hapticTrigger += 1
+    }
+}
+
+// MARK: - CGImagePropertyOrientation Helper
+extension CGImagePropertyOrientation {
+    init(_ uiOrientation: UIImage.Orientation) {
+        switch uiOrientation {
+        case .up: self = .up
+        case .upMirrored: self = .upMirrored
+        case .down: self = .down
+        case .downMirrored: self = .downMirrored
+        case .left: self = .left
+        case .leftMirrored: self = .leftMirrored
+        case .right: self = .right
+        case .rightMirrored: self = .rightMirrored
+        @unknown default: self = .up
+        }
     }
 }

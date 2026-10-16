@@ -247,13 +247,15 @@ extension NFCManager: NFCNDEFReaderSessionDelegate {
             return
         }
 
-        session.connect(to: tag) { error in
+        session.connect(to: tag) { [weak self] error in
+            guard let self = self else { return }
             if let error = error {
                 session.invalidate(errorMessage: "Connection failed: \(error.localizedDescription)")
                 return
             }
 
-            tag.queryNDEFStatus { status, capacity, queryError in
+            tag.queryNDEFStatus { [weak self] status, capacity, queryError in
+                guard let self = self else { return }
                 if let queryError = queryError {
                     session.invalidate(errorMessage: "Could not query tag status: \(queryError.localizedDescription)")
                     return
@@ -267,7 +269,8 @@ extension NFCManager: NFCNDEFReaderSessionDelegate {
                 case .readWrite:
                     // Construct NDEF Payload
                     let ndefPayload: NFCNDEFPayload?
-                    if let url = URL(string: payload), payload.lowercased().hasPrefix("http") {
+                    let safeURL = URL(string: payload) ?? URL(string: payload.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")
+                    if let url = safeURL, payload.lowercased().hasPrefix("http") {
                         ndefPayload = NFCNDEFPayload.wellKnownTypeURIPayload(url: url)
                     } else {
                         ndefPayload = NFCNDEFPayload.wellKnownTypeTextPayload(string: payload, locale: Locale(identifier: "en"))
@@ -286,7 +289,8 @@ extension NFCManager: NFCNDEFReaderSessionDelegate {
                         return
                     }
 
-                    tag.writeNDEF(message) { writeError in
+                    tag.writeNDEF(message) { [weak self] writeError in
+                        guard let self = self else { return }
                         if let writeError = writeError {
                             session.invalidate(errorMessage: "Write failed: \(writeError.localizedDescription)")
                         } else {

@@ -36,27 +36,25 @@ public struct MainGlassTabView: View {
 
     public var body: some View {
         ZStack(alignment: .bottom) {
-            // Main Content Area with smooth transitions
-            Group {
-                switch selectedTab {
-                case .generator:
-                    NavigationStack {
-                        GeneratorView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    }
-                    .transition(.opacity)
-
-                case .scanner:
-                    NavigationStack {
-                        ScannerView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    }
-                    .transition(.opacity)
-
-                case .assistant:
-                    NavigationStack {
-                        AIAssistantView(hasCompletedOnboarding: $hasCompletedOnboarding)
-                    }
-                    .transition(.opacity)
+            // Main Content Area with state preservation across tabs
+            ZStack {
+                NavigationStack {
+                    GeneratorView(hasCompletedOnboarding: $hasCompletedOnboarding)
                 }
+                .opacity(selectedTab == .generator ? 1 : 0)
+                .allowsHitTesting(selectedTab == .generator)
+
+                NavigationStack {
+                    ScannerView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                }
+                .opacity(selectedTab == .scanner ? 1 : 0)
+                .allowsHitTesting(selectedTab == .scanner)
+
+                NavigationStack {
+                    AIAssistantView(hasCompletedOnboarding: $hasCompletedOnboarding)
+                }
+                .opacity(selectedTab == .assistant ? 1 : 0)
+                .allowsHitTesting(selectedTab == .assistant)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 

@@ -116,10 +116,14 @@ public struct SteganographicQREngine: Sendable {
             throw SteganographicQRError.invalidCiphertextFormat
         }
 
-        // Restore URL-safe base64
-        let base64 = base64Raw
+        // Restore URL-safe base64 and missing padding
+        var base64 = base64Raw
             .replacingOccurrences(of: "_", with: "/")
             .replacingOccurrences(of: "-", with: "+")
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64.append(String(repeating: "=", count: 4 - remainder))
+        }
 
         guard let data = Data(base64Encoded: base64) else {
             throw SteganographicQRError.invalidCiphertextFormat

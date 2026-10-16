@@ -66,12 +66,12 @@ public final class GlassTranslationEngine: ObservableObject {
             return SupportedLanguage.catalog[0] // Default English
         }
 
-        // Quick heuristic check for Khmer script Unicode range (\u1780-\u17FF)
         for scalar in text.unicodeScalars {
             if scalar.value >= 0x1780 && scalar.value <= 0x17FF {
-                let khmer = SupportedLanguage.catalog.first(where: { $0.id == "km" })!
-                self.detectedLanguage = khmer
-                return khmer
+                if let khmer = SupportedLanguage.catalog.first(where: { $0.id == "km" }) {
+                    self.detectedLanguage = khmer
+                    return khmer
+                }
             }
         }
 

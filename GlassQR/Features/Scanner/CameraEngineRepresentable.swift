@@ -40,6 +40,7 @@ struct CameraEngineRepresentable: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: CameraViewController, context: Context) {
+        context.coordinator.parent = self
         uiViewController.setTorch(on: isTorchOn)
         uiViewController.setPaused(isPaused)
         uiViewController.setZoom(zoomFactor)
@@ -51,7 +52,7 @@ struct CameraEngineRepresentable: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, CameraViewControllerDelegate {
-        let parent: CameraEngineRepresentable
+        var parent: CameraEngineRepresentable
 
         init(parent: CameraEngineRepresentable) {
             self.parent = parent
@@ -277,6 +278,18 @@ final class CameraViewController: UIViewController, AVCaptureMetadataOutputObjec
         case .aztec: return "Aztec"
         default: return "Barcode"
         }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        #if !targetEnvironment(simulator)
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            if !self.isPausedInternal && !self.captureSession.isRunning {
+                self.captureSession.startRunning()
+            }
+        }
+        #endif
     }
 
     override func viewWillDisappear(_ animated: Bool) {

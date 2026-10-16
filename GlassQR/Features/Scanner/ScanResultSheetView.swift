@@ -667,7 +667,8 @@ public struct ScanResultSheetView: View {
                 }
                 .buttonStyle(.glass)
 
-                if let mailURL = URL(string: "mailto:\(address)") {
+                let cleanAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let mailURL = URL(string: "mailto:\(cleanAddress)") ?? URL(string: "mailto:\(cleanAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") {
                     Button {
                         openURL(mailURL)
                         dismiss()
@@ -711,8 +712,9 @@ public struct ScanResultSheetView: View {
                 }
                 .buttonStyle(.glass)
 
+                let cleanNumber = number.replacingOccurrences(of: " ", with: "")
                 let bodyParam = message?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                let smsStr = bodyParam.isEmpty ? "sms:\(number)" : "sms:\(number)&body=\(bodyParam)"
+                let smsStr = bodyParam.isEmpty ? "sms:\(cleanNumber)" : "sms:\(cleanNumber)?body=\(bodyParam)"
                 if let smsURL = URL(string: smsStr) {
                     Button {
                         openURL(smsURL)

@@ -312,9 +312,10 @@ public struct GeneratorView: View {
         .onChange(of: customLogoItem) { _, newItem in
             Task {
                 if let data = try? await newItem?.loadTransferable(type: Data.self),
-                   let img = UIImage(data: data) {
+                   let rawImg = UIImage(data: data) {
+                    let optimizedImg = downsampleImage(rawImg, maxDimension: 512)
                     await MainActor.run {
-                        customLogoImage = img
+                        customLogoImage = optimizedImg
                         selectedBadge = .none
                         renderCurrentQR()
                     }
@@ -928,9 +929,34 @@ public struct GeneratorView: View {
         try? pdfData.write(to: tempURL)
 
         let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            rootVC.present(activityVC, animated: true)
+        if let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene ?? UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? windowScene.windows.first?.rootViewController {
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = topVC.view
+                popover.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            topVC.present(activityVC, animated: true)
+        }
+    }
+
+    private func downsampleImage(_ image: UIImage, maxDimension: CGFloat = 512) -> UIImage {
+        let size = image.size
+        guard size.width > maxDimension || size.height > maxDimension else { return image }
+        let aspect = size.width / size.height
+        let targetSize: CGSize
+        if aspect > 1 {
+            targetSize = CGSize(width: maxDimension, height: maxDimension / aspect)
+        } else {
+            targetSize = CGSize(width: maxDimension * aspect, height: maxDimension)
+        }
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
 
