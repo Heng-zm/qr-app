@@ -11,6 +11,7 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import QuartzCore
 
 public struct TrackMapView: View {
     @ObservedObject var manager = TrackMapManager.shared
@@ -20,7 +21,7 @@ public struct TrackMapView: View {
     @State private var mapType: MKMapType = .standard
     @State private var showsTraffic: Bool = false
     @State private var is3DPitchActive: Bool = true
-    @State private var userTrackingMode: MKUserTrackingMode = .followWithHeading
+    @State private var isHeadingLocked: Bool = true
     @State private var mapCenterTrigger: Int = 0
 
     // Search & Navigation States
@@ -49,7 +50,7 @@ public struct TrackMapView: View {
                 mapType: mapType,
                 showsTraffic: showsTraffic,
                 is3DPitchActive: is3DPitchActive,
-                userTrackingMode: $userTrackingMode,
+                isHeadingLocked: $isHeadingLocked,
                 mapCenterTrigger: mapCenterTrigger,
                 onSelectCoordinate: { coord in
                     reverseGeocodeAndRoute(to: coord)
@@ -76,22 +77,22 @@ public struct TrackMapView: View {
             VStack(spacing: 10) {
                 Spacer()
 
-                // Recenter & 3D Heading Lock
+                // Recenter & 3D Heading Lock (60 FPS Cinematic Follow)
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
-                        userTrackingMode = .followWithHeading
-                        mapCenterTrigger += 1
+                        isHeadingLocked = true
                         is3DPitchActive = true
+                        mapCenterTrigger += 1
                     }
-                    triggerToast(isKhmerLanguage ? "បានចាក់សោតាមទិសដៅក្បាល" : "Heading Locked")
+                    triggerToast(isKhmerLanguage ? "បានចាក់សោតាមទិសដៅក្បាល 60 FPS" : "Heading Locked (60 FPS)")
                 } label: {
-                    Image(systemName: userTrackingMode == .followWithHeading ? "location.north.line.fill" : "location.fill")
+                    Image(systemName: isHeadingLocked ? "location.north.line.fill" : "location.fill")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(userTrackingMode == .followWithHeading ? Color.cyan : Color.white)
+                        .foregroundStyle(isHeadingLocked ? Color.cyan : Color.white)
                         .frame(width: 44, height: 44)
                         .background(Color(red: 0.08, green: 0.09, blue: 0.14).opacity(0.85), in: Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
+                        .overlay(Circle().stroke(isHeadingLocked ? Color.cyan.opacity(0.65) : Color.white.opacity(0.2), lineWidth: 1.2))
+                        .shadow(color: isHeadingLocked ? Color.cyan.opacity(0.4) : Color.black.opacity(0.3), radius: 8, x: 0, y: 3)
                 }
 
                 // Traffic Overlay Toggle
@@ -874,14 +875,14 @@ final class MapSearchModel: ObservableObject {
     // Kept lightweight for search management
 }
 
-// MARK: - UIViewRepresentable for MKMapView
+// MARK: - UIViewRepresentable for MKMapView (60fps High-Refresh Telemetry Engine)
 
 public struct TrackMapViewRepresentable: UIViewRepresentable {
     @ObservedObject var manager: TrackMapManager
     var mapType: MKMapType
     var showsTraffic: Bool
     var is3DPitchActive: Bool
-    @Binding var userTrackingMode: MKUserTrackingMode
+    @Binding var isHeadingLocked: Bool
     var mapCenterTrigger: Int
     var onSelectCoordinate: (CLLocationCoordinate2D) -> Void
 
@@ -897,77 +898,198 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         mapView.showsScale = true
         mapView.isPitchEnabled = true
         mapView.isRotateEnabled = true
+        mapView.isScrollEnabled = true
+        mapView.isZoomEnabled = true
 
         // Tap gesture to drop pin and navigate
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         mapView.addGestureRecognizer(tap)
 
+        // Seamless gestures to detect manual user panning/zooming and unlock camera lock
+        let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+        pan.delegate = context.coordinator
+        mapView.addGestureRecognizer(pan)
+
+        let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinch.delegate = context.coordinator
+        mapView.addGestureRecognizer(pinch)
+
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.delegate = context.coordinator
+        mapView.addGestureRecognizer(doubleTap)
+
+        context.coordinator.setup(mapView: mapView)
+
         return mapView
     }
 
     public func updateUIView(_ mapView: MKMapView, context: Context) {
-        mapView.mapType = mapType
-        mapView.showsTraffic = showsTraffic
+        context.coordinator.parent = self
 
-        // Update Overlays (Route & Breadcrumbs)
-        updateRouteOverlays(mapView: mapView)
-
-        // Handle Tracking Mode
-        if mapView.userTrackingMode != userTrackingMode {
-            mapView.setUserTrackingMode(userTrackingMode, animated: true)
+        if mapView.mapType != mapType {
+            mapView.mapType = mapType
+        }
+        if mapView.showsTraffic != showsTraffic {
+            mapView.showsTraffic = showsTraffic
         }
 
-        // Camera Pitch
-        if is3DPitchActive && mapView.camera.pitch < 30 {
-            var camera = mapView.camera
-            camera.pitch = 45.0
-            mapView.setCamera(camera, animated: true)
-        }
-    }
+        // Overlays (Routes & Breadcrumbs)
+        context.coordinator.updateOverlays(mapView: mapView)
 
-    private func updateRouteOverlays(mapView: MKMapView) {
-        // Clear old polylines if needed
-        let existingPolylines = mapView.overlays.filter { $0 is MKPolyline }
-
-        if let route = manager.activeRoute {
-            if !existingPolylines.contains(where: { ($0 as? MKPolyline) == route.polyline }) {
-                mapView.removeOverlays(existingPolylines)
-                mapView.addOverlay(route.polyline, level: .aboveRoads)
-
-                // Add destination annotation if not present
-                if let dest = manager.destinationMapItem {
-                    let existingPins = mapView.annotations.filter { !($0 is MKUserLocation) }
-                    mapView.removeAnnotations(existingPins)
-
-                    let pin = MKPointAnnotation()
-                    pin.coordinate = dest.placemark.coordinate
-                    pin.title = dest.name
-                    mapView.addAnnotation(pin)
-                }
-            }
-        } else if existingPolylines.count > 0 && manager.activeRoute == nil {
-            mapView.removeOverlays(existingPolylines)
-            let existingPins = mapView.annotations.filter { !($0 is MKUserLocation) }
-            mapView.removeAnnotations(existingPins)
-        }
-
-        // Draw breadcrumbs if recording trip
-        if manager.isRecordingTrip && manager.breadcrumbs.count > 1 {
-            let coords = manager.breadcrumbs.map { $0.coordinate }
-            let breadcrumbLine = MKPolyline(coordinates: coords, count: coords.count)
-            // Add breadcrumb trail
-            if !mapView.overlays.contains(where: { $0.title == "BreadcrumbTrail" }) {
-                breadcrumbLine.title = "BreadcrumbTrail"
-                mapView.addOverlay(breadcrumbLine, level: .aboveRoads)
-            }
+        // Handle Re-center & Heading Lock Trigger from UI
+        if context.coordinator.lastCenterTrigger != mapCenterTrigger {
+            context.coordinator.lastCenterTrigger = mapCenterTrigger
+            context.coordinator.engageHeadingLock()
         }
     }
 
-    public final class Coordinator: NSObject, MKMapViewDelegate {
+    public final class Coordinator: NSObject, MKMapViewDelegate, UIGestureRecognizerDelegate {
         var parent: TrackMapViewRepresentable
+        weak var mapView: MKMapView?
+        private var displayLink: CADisplayLink?
+
+        // 60fps/120fps Interpolated Camera State
+        var camLat: Double = 0.0
+        var camLon: Double = 0.0
+        var camHeading: Double = 0.0
+        var camAltitude: Double = 380.0
+        var camPitch: CGFloat = 52.0
+        var hasInitializedCamera: Bool = false
+
+        var lastCenterTrigger: Int = 0
+        var lastBreadcrumbCount: Int = 0
+        var isUserDragging: Bool = false
 
         init(_ parent: TrackMapViewRepresentable) {
             self.parent = parent
+            super.init()
+        }
+
+        deinit {
+            displayLink?.invalidate()
+            displayLink = nil
+        }
+
+        func setup(mapView: MKMapView) {
+            self.mapView = mapView
+
+            displayLink?.invalidate()
+            let link = CADisplayLink(target: self, selector: #selector(onDisplayLinkTick))
+            // Support ProMotion 120Hz on modern devices, 60Hz minimum
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
+            link.add(to: .main, forMode: .common)
+            self.displayLink = link
+        }
+
+        public func engageHeadingLock() {
+            guard let mapView = mapView else { return }
+            // Seed lerp state with current camera position so camera glides smoothly to user position
+            camLat = mapView.camera.centerCoordinate.latitude
+            camLon = mapView.camera.centerCoordinate.longitude
+            camHeading = mapView.camera.heading
+            camAltitude = mapView.camera.centerCoordinateDistance > 50 ? mapView.camera.centerCoordinateDistance : 380.0
+            camPitch = mapView.camera.pitch
+            hasInitializedCamera = true
+        }
+
+        @objc func onDisplayLinkTick() {
+            guard parent.isHeadingLocked else { return }
+            guard !isUserDragging else { return }
+            guard let targetCoord = parent.manager.currentCoordinate else { return }
+            guard let mapView = mapView else { return }
+
+            if !hasInitializedCamera || (camLat == 0.0 && camLon == 0.0) {
+                camLat = targetCoord.latitude
+                camLon = targetCoord.longitude
+                camHeading = parent.manager.headingDegrees
+                camAltitude = 380.0
+                camPitch = 52.0
+                hasInitializedCamera = true
+            }
+
+            // 1. Position Lerp (Factor 0.12 provides smooth follow without lag)
+            camLat += (targetCoord.latitude - camLat) * 0.12
+            camLon += (targetCoord.longitude - camLon) * 0.12
+            let currentCenter = CLLocationCoordinate2D(latitude: camLat, longitude: camLon)
+
+            // 2. Shortest-Arc Circular Lerp for Heading (Factor 0.10)
+            let targetHeading = parent.manager.headingDegrees
+            var dHeading = (targetHeading - camHeading).truncatingRemainder(dividingBy: 360.0)
+            if dHeading > 180.0 { dHeading -= 360.0 }
+            if dHeading < -180.0 { dHeading += 360.0 }
+            camHeading += dHeading * 0.10
+            if camHeading < 0.0 { camHeading += 360.0 }
+            if camHeading >= 360.0 { camHeading -= 360.0 }
+
+            // 3. Dynamic Speed-Based Altitude Zooming
+            // Stopped/Slow (< 15 km/h): 380m
+            // Cruising (50-80 km/h): ~550m-700m
+            // Highway (120+ km/h): up to 880m
+            let speedKmh = max(0.0, parent.manager.currentSpeedMPS * 3.6)
+            let targetAltitude = 380.0 + min(500.0, speedKmh * 4.2)
+            camAltitude += (targetAltitude - camAltitude) * 0.06
+
+            // 4. Smooth 3D Perspective Pitch (52 degrees optimal navigation angle)
+            let targetPitch: CGFloat = parent.is3DPitchActive ? 52.0 : 0.0
+            camPitch += (targetPitch - camPitch) * 0.08
+
+            // 5. Update MapKit Camera Directly at 60fps/120fps (Zero tracking mode jitter)
+            let camera = MKMapCamera(
+                lookingAtCenter: currentCenter,
+                fromDistance: camAltitude,
+                pitch: camPitch,
+                heading: camHeading
+            )
+            mapView.camera = camera
+        }
+
+        // Gesture handling for seamless manual map pan/pinch/zoom
+        @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            switch gesture.state {
+            case .began:
+                isUserDragging = true
+                if parent.isHeadingLocked {
+                    DispatchQueue.main.async {
+                        self.parent.isHeadingLocked = false
+                    }
+                }
+            case .ended, .cancelled:
+                isUserDragging = false
+            default:
+                break
+            }
+        }
+
+        @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            switch gesture.state {
+            case .began:
+                isUserDragging = true
+                if parent.isHeadingLocked {
+                    DispatchQueue.main.async {
+                        self.parent.isHeadingLocked = false
+                    }
+                }
+            case .ended, .cancelled:
+                isUserDragging = false
+            default:
+                break
+            }
+        }
+
+        @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+            if parent.isHeadingLocked {
+                DispatchQueue.main.async {
+                    self.parent.isHeadingLocked = false
+                }
+            }
+        }
+
+        public func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            return true
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
@@ -975,6 +1097,52 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
             let point = gesture.location(in: mapView)
             let coord = mapView.convert(point, toCoordinateFrom: mapView)
             parent.onSelectCoordinate(coord)
+        }
+
+        // Overlay updates
+        func updateOverlays(mapView: MKMapView) {
+            // Navigation route
+            let routePolylines = mapView.overlays.filter { ($0 as? MKPolyline)?.title != "BreadcrumbTrail" }
+            if let route = parent.manager.activeRoute {
+                if !routePolylines.contains(where: { ($0 as? MKPolyline) == route.polyline }) {
+                    mapView.removeOverlays(routePolylines)
+                    mapView.addOverlay(route.polyline, level: .aboveRoads)
+
+                    if let dest = parent.manager.destinationMapItem {
+                        let existingPins = mapView.annotations.filter { !($0 is MKUserLocation) }
+                        mapView.removeAnnotations(existingPins)
+
+                        let pin = MKPointAnnotation()
+                        pin.coordinate = dest.placemark.coordinate
+                        pin.title = dest.name
+                        mapView.addAnnotation(pin)
+                    }
+                }
+            } else if !routePolylines.isEmpty && parent.manager.activeRoute == nil {
+                mapView.removeOverlays(routePolylines)
+                let existingPins = mapView.annotations.filter { !($0 is MKUserLocation) }
+                mapView.removeAnnotations(existingPins)
+            }
+
+            // Breadcrumbs update
+            if parent.manager.isRecordingTrip && parent.manager.breadcrumbs.count > 1 {
+                if parent.manager.breadcrumbs.count != lastBreadcrumbCount {
+                    lastBreadcrumbCount = parent.manager.breadcrumbs.count
+                    let coords = parent.manager.breadcrumbs.map { $0.coordinate }
+                    let breadcrumbLine = MKPolyline(coordinates: coords, count: coords.count)
+                    breadcrumbLine.title = "BreadcrumbTrail"
+
+                    if let existing = mapView.overlays.first(where: { ($0 as? MKPolyline)?.title == "BreadcrumbTrail" }) {
+                        mapView.removeOverlay(existing)
+                    }
+                    mapView.addOverlay(breadcrumbLine, level: .aboveRoads)
+                }
+            } else if !parent.manager.isRecordingTrip && parent.manager.breadcrumbs.isEmpty {
+                if let existing = mapView.overlays.first(where: { ($0 as? MKPolyline)?.title == "BreadcrumbTrail" }) {
+                    mapView.removeOverlay(existing)
+                    lastBreadcrumbCount = 0
+                }
+            }
         }
 
         public func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
@@ -986,7 +1154,6 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
                     renderer.lineCap = .round
                     renderer.lineJoin = .round
                 } else {
-                    // Navigation Route
                     renderer.strokeColor = UIColor(red: 0.05, green: 0.65, blue: 1.0, alpha: 0.95)
                     renderer.lineWidth = 7.0
                     renderer.lineCap = .round
@@ -1011,12 +1178,6 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
                 view?.annotation = annotation
             }
             return view
-        }
-
-        public func mapView(_ mapView: MKMapView, didChange mode: MKUserTrackingMode, animated: Bool) {
-            DispatchQueue.main.async {
-                self.parent.userTrackingMode = mode
-            }
         }
     }
 }

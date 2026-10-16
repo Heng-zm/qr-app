@@ -134,6 +134,8 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
     private var simulatedHeading: Double = 45.0
     private var simulatedSpeedMPS: Double = 0.0
     private var simulatedCoord = CLLocationCoordinate2D(latitude: 11.5564, longitude: 104.9282) // Phnom Penh center
+    private var isHeadingInitialized: Bool = false
+    private var simulatedSimTime: TimeInterval = 0.0
 
     public override init() {
         super.init()
@@ -321,12 +323,53 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
     public func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
         guard !isSimulating else { return }
         if newHeading.headingAccuracy >= 0 {
-            headingDegrees = newHeading.trueHeading > 0 ? newHeading.trueHeading : newHeading.magneticHeading
+            let raw = newHeading.trueHeading > 0 ? newHeading.trueHeading : newHeading.magneticHeading
+            // When moving at speed (e.g. driving/cycling), GPS course provides superior forward vector stability.
+            // When stopped or walking slowly, filtered magnetic heading smoothly guides orientation.
+            if currentSpeedMPS < 1.8 {
+                filterAndApplyHeading(raw, responsiveness: 0.28)
+            }
         }
     }
 
     public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         // Ignored or logged gracefully
+    }
+
+    // MARK: - Circular EMA Compass & Course Filter
+
+    public func filterAndApplyHeading(_ raw: Double, responsiveness: Double = 0.28) {
+        guard raw >= 0.0 && raw <= 360.0 else { return }
+
+        if !isHeadingInitialized {
+            headingDegrees = raw
+            isHeadingInitialized = true
+            return
+        }
+
+        var delta = (raw - headingDegrees).truncatingRemainder(dividingBy: 360.0)
+        if delta > 180.0 { delta -= 360.0 }
+        if delta < -180.0 { delta += 360.0 }
+
+        // Adaptive low-pass filter:
+        // - Small tremors (< 6°): Heavy damping (alpha = 0.16) to eliminate magnetic sensor jitter
+        // - Medium turns (6° - 35°): Smooth tracking (alpha = responsiveness)
+        // - Quick sharp turns (> 35°): Snappy tracking (alpha = 0.65) so no lag on 90° intersection turns
+        let absDelta = abs(delta)
+        let alpha: Double
+        if absDelta > 35.0 {
+            alpha = 0.65
+        } else if absDelta > 6.0 {
+            alpha = responsiveness
+        } else {
+            alpha = 0.16
+        }
+
+        var updated = headingDegrees + delta * alpha
+        if updated < 0.0 { updated += 360.0 }
+        if updated >= 360.0 { updated -= 360.0 }
+
+        headingDegrees = updated
     }
 
     // MARK: - Core Processing Logic
@@ -341,6 +384,11 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         let convertedSpeed = unit.convert(speedInMetersPerSecond: rawSpeedMPS)
         currentSpeed = convertedSpeed
 
+        // Blend GPS Doppler course when moving at speed (> 1.8 m/s = ~6.5 km/h)
+        if location.course >= 0.0 && rawSpeedMPS >= 1.8 {
+            filterAndApplyHeading(location.course, responsiveness: 0.38)
+        }
+
         // Update Top Speed
         if convertedSpeed > topSpeed {
             topSpeed = convertedSpeed
@@ -349,7 +397,8 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         // Distance accumulator
         if let previous = lastLocation {
             let delta = location.distance(from: previous)
-            if delta > 1.5 && delta < 500 { // sanity checks against GPS jumps
+            let minDelta = isSimulating ? 0.05 : 1.2
+            if delta > minDelta && delta < 500 { // sanity checks against GPS jumps
                 totalDistanceMeters += delta
             }
         }
@@ -444,6 +493,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         isSimulating = true
         simulatedSpeedMPS = 0.0
         simulatedHeading = 35.0
+        simulatedSimTime = 0.0
         if currentCoordinate == nil {
             currentCoordinate = simulatedCoord
         } else {
@@ -455,22 +505,25 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         }
 
         simulationTimer?.invalidate()
-        simulationTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        let tickInterval: TimeInterval = 0.033 // High-refresh 30Hz simulation loop for 60fps tracking
+        simulationTimer = Timer.scheduledTimer(withTimeInterval: tickInterval, repeats: true) { [weak self] _ in
             guard let self = self, self.isSimulating else { return }
 
-            // Dynamic realistic speed curves (cruising between 45 and 95 km/h, occasional slowdowns)
-            let targetSpeedKmh = 72.0 + sin(self.tripElapsedTime * 0.4) * 28.0 + cos(self.tripElapsedTime * 0.15) * 12.0
-            let targetMPS = max(0, targetSpeedKmh / 3.6)
-            self.simulatedSpeedMPS += (targetMPS - self.simulatedSpeedMPS) * 0.12
+            self.simulatedSimTime += tickInterval
 
-            // Curve heading slowly
-            self.simulatedHeading += sin(self.tripElapsedTime * 0.25) * 3.5
-            if self.simulatedHeading < 0 { self.simulatedHeading += 360 }
-            if self.simulatedHeading >= 360 { self.simulatedHeading -= 360 }
+            // Dynamic realistic speed curves (cruising smoothly with realistic vehicle inertia)
+            let targetSpeedKmh = 70.0 + sin(self.simulatedSimTime * 0.35) * 25.0 + cos(self.simulatedSimTime * 0.12) * 10.0
+            let targetMPS = max(0, targetSpeedKmh / 3.6)
+            self.simulatedSpeedMPS += (targetMPS - self.simulatedSpeedMPS) * 0.035
+
+            // Smooth curved road heading change
+            self.simulatedHeading += sin(self.simulatedSimTime * 0.22) * 0.45
+            if self.simulatedHeading < 0 { self.simulatedHeading += 360.0 }
+            if self.simulatedHeading >= 360.0 { self.simulatedHeading -= 360.0 }
             self.headingDegrees = self.simulatedHeading
 
-            // Move coordinates forward
-            let distance = self.simulatedSpeedMPS * 0.25
+            // Forward dead-reckoning kinematics
+            let distance = self.simulatedSpeedMPS * tickInterval
             let bearingRad = self.simulatedHeading * .pi / 180.0
             let earthRadius = 6378137.0
             let dLat = (distance * cos(bearingRad)) / earthRadius
@@ -481,9 +534,9 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
 
             let simLocation = CLLocation(
                 coordinate: self.simulatedCoord,
-                altitude: 28.0 + sin(self.tripElapsedTime * 0.1) * 8.0,
-                horizontalAccuracy: 3.0,
-                verticalAccuracy: 3.0,
+                altitude: 28.0 + sin(self.simulatedSimTime * 0.08) * 8.0,
+                horizontalAccuracy: 2.5,
+                verticalAccuracy: 2.5,
                 course: self.simulatedHeading,
                 speed: self.simulatedSpeedMPS,
                 timestamp: Date()
@@ -497,6 +550,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         isSimulating = false
         simulationTimer?.invalidate()
         simulationTimer = nil
+        simulatedSimTime = 0.0
         currentSpeed = 0.0
         currentSpeedMPS = 0.0
     }
