@@ -221,6 +221,24 @@ public struct OpenScannerIntent: AppIntent {
     }
 }
 
+// MARK: - 5. Open TrackMap & Speedometer Intent
+
+public struct OpenTrackMapIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Open TrackMap & Speedometer"
+    public static var description = IntentDescription("Launches GlassQR directly into live TrackMap and speed tracking mode.")
+    public static var openAppWhenRun: Bool = true
+
+    public init() {}
+
+    @MainActor
+    public func perform() async throws -> some IntentResult {
+        if let url = URL(string: "glassqr://trackmap") {
+            await UIApplication.shared.open(url)
+        }
+        return .result()
+    }
+}
+
 // MARK: - Siri Shortcuts Provider
 
 public struct GlassQRShortcuts: AppShortcutsProvider {
@@ -255,6 +273,17 @@ public struct GlassQRShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Open Scanner",
             systemImageName: "qrcode.viewfinder"
+        )
+
+        AppShortcut(
+            intent: OpenTrackMapIntent(),
+            phrases: [
+                "Open TrackMap in \(.applicationName)",
+                "Start speedometer in \(.applicationName)",
+                "Track speed with \(.applicationName)"
+            ],
+            shortTitle: "Open TrackMap",
+            systemImageName: "location.north.circle.fill"
         )
     }
 }

@@ -43,6 +43,9 @@
 		1B0000340000000000000034 /* WalletPassSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000350000000000000035 /* WalletPassSheetView.swift */; };
 		1B0000350000000000000035 /* GlassQRAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000360000000000000036 /* GlassQRAppIntents.swift */; };
 		1B0000360000000000000036 /* CoreMLSLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000370000000000000037 /* CoreMLSLMEngine.swift */; };
+		1B0000370000000000000037 /* TrackMapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000380000000000000038 /* TrackMapManager.swift */; };
+		1B0000380000000000000038 /* TrackMapHUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000390000000000000039 /* TrackMapHUDView.swift */; };
+		1B0000390000000000000039 /* TrackMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000400000000000000040 /* TrackMapView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +87,9 @@
 		1A0000350000000000000035 /* WalletPassSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletPassSheetView.swift; sourceTree = "<group>"; };
 		1A0000360000000000000036 /* GlassQRAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassQRAppIntents.swift; sourceTree = "<group>"; };
 		1A0000370000000000000037 /* CoreMLSLMEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMLSLMEngine.swift; sourceTree = "<group>"; };
+		1A0000380000000000000038 /* TrackMapManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMapManager.swift; sourceTree = "<group>"; };
+		1A0000390000000000000039 /* TrackMapHUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMapHUDView.swift; sourceTree = "<group>"; };
+		1A0000400000000000000040 /* TrackMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,8 +163,17 @@
 				1C0000240000000000000024 /* DocumentScanner */,
 				1C0000250000000000000025 /* Wallet */,
 				1C0000270000000000000027 /* AppIntents */,
+				1C0000280000000000000028 /* Tracking */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		1C0000280000000000000028 /* Tracking */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000380000000000000038 /* TrackMapManager.swift */,
+			);
+			path = Tracking;
 			sourceTree = "<group>";
 		};
 		1C0000250000000000000025 /* Wallet */ = {
@@ -260,9 +275,19 @@
 				1C0000210000000000000021 /* Translation */,
 				1C0000220000000000000022 /* NFC */,
 				1C0000260000000000000026 /* Wallet */,
+				1C0000290000000000000029 /* TrackMap */,
 				1C0000140000000000000014 /* Navigation */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		1C0000290000000000000029 /* TrackMap */ = {
+			isa = PBXGroup;
+			children = (
+				1A0000390000000000000039 /* TrackMapHUDView.swift */,
+				1A0000400000000000000040 /* TrackMapView.swift */,
+			);
+			path = TrackMap;
 			sourceTree = "<group>";
 		};
 		1C0000260000000000000026 /* Wallet */ = {
@@ -453,6 +478,9 @@
 				1B0000340000000000000034 /* WalletPassSheetView.swift in Sources */,
 				1B0000350000000000000035 /* GlassQRAppIntents.swift in Sources */,
 				1B0000360000000000000036 /* CoreMLSLMEngine.swift in Sources */,
+				1B0000370000000000000037 /* TrackMapManager.swift in Sources */,
+				1B0000380000000000000038 /* TrackMapHUDView.swift in Sources */,
+				1B0000390000000000000039 /* TrackMapView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

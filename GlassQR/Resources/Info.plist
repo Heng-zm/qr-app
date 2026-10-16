@@ -33,7 +33,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>GlassQR uses Face ID to decrypt and unlock zero-knowledge encrypted QR codes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>GlassQR uses your location to drop a pin on Apple Maps and generate location QR codes.</string>
+	<string>GlassQR uses your location for high-precision live speed tracking, telemetry navigation, HUD speedometer, and generating location QR codes.</string>
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
 		<string>NDEF</string>

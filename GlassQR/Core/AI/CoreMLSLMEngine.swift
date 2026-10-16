@@ -58,6 +58,7 @@ public enum SLMIntentClass: String, CaseIterable, Sendable {
     case urlAudit = "URL Phishing & Security Audit"
     case qrArchitecture = "QR Vector Architecture & Error Correction"
     case nfcProgramming = "Physical NFC NDEF Programming"
+    case trackMap = "TrackMap Speedometer & Navigation"
     case generalChat = "Conversational Reasoning"
 
     public var benchmarkKeywords: [String] {
@@ -82,6 +83,8 @@ public enum SLMIntentClass: String, CaseIterable, Sendable {
             return ["error correction", "styling", "gradient", "dots", "squircle", "eyes", "vector", "svg", "pdf", "resolution", "រចនា", "ម៉ូត", "ពណ៌", "កែប្រែទម្រង់", "ចំណុច"]
         case .nfcProgramming:
             return ["nfc", "ndef", "burn tag", "write tag", "smart sticker", "rfid", "flash tag", "សរសេរ nfc", "ស្លាក nfc", "ស្ទីគ័រ nfc"]
+        case .trackMap:
+            return ["trackmap", "track map", "speedometer", "speed tracking", "hud", "telemetry", "google map", "google maps", "odometer", "overspeed", "kmh", "mph", "តាមដានល្បឿន", "ល្បឿន", "ម៉ែត្រល្បឿន", "hud mode", "ចម្ងាយ", "កត់ត្រាផ្លូវ"]
         case .generalChat:
             return ["hello", "help", "what can you do", "explain", "who are you", "copilot", "features", "chat", "gemini", "chatgpt", "សួស្តី", "ជម្រាបសួរ", "តើអ្នកជាអ្វី", "តើអ្នកអាចធ្វើអ្វីបាន", "តើ qr ជាអ្វី", "ជួយ", "ពន្យល់", "អរគុណ"]
         }
@@ -183,6 +186,9 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         case .nfcProgramming:
             return buildNFCResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
+
+        case .trackMap:
+            return buildTrackMapResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .generalChat:
             return buildGeneralChatResponse(prompt: prompt, persona: persona, latency: elapsedMs, isKhmer: isKhmer, history: history)
@@ -1130,4 +1136,64 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
                 : ["Create Wi-Fi QR", "Drop Pin on Apple Maps", "Encrypt Secret Vault", "Create Apple Wallet Pass"]
         )
     }
+
+    // MARK: - TrackMap & Speedometer Telemetry Handler
+
+    private func buildTrackMapResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let text = isKhmer ? """
+        ### ⚡ GlassQR TrackMap & Live Speedometer Telemetry (ភាសាខ្មែរ)
+        *វិភាគតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • ដំណើរការ 100% Offline លើ GPS*
+
+        **លក្ខណៈពិសេសដែលលើសពី Google Maps៖**
+        - 🚀 **High-Precision Live Speedometer:** ម៉ែត្រវាស់ល្បឿនឌីជីថល និង Arc Gauge ច្បាស់កម្រិត Millisecond (km/h & mph)។
+        - 🌌 **Windshield HUD Mode (Head-Up Display):** បង្វែរអេក្រង់ផ្កាប់បញ្ច្រាស (Mirrored) សម្រាប់ដាក់លើតាប្លូរថយន្តនៅពេលយប់ ចាំងឆ្លុះលើកញ្ចក់រថយន្តដូចយានអវកាស!
+        - 🛣️ **Speed-Colored Breadcrumb Path:** កត់ត្រាគន្លងផ្លូវបើកបរ ដោយបង្ហាញពណ៌តាមកម្រិតល្បឿន (ខៀវ=យឺត, បៃតង=ធម្មតា, ទឹកក្រូច/ក្រហម=ល្បឿនលឿន)។
+        - 🚨 **Overspeed Alert:** កំណត់ល្បឿនអតិបរមា និងរំញ័រដាស់តឿន Haptic ភ្លាមៗពេលបើកបរលើសល្បឿនកំណត់។
+        - 📍 **Instant Geo-QR Integration:** 1 ចុចបង្កើតកូដ QR ទីតាំងបច្ចុប្បន្ន ឬផ្លូវធ្វើដំណើរ ដែលអ្នកដទៃអាចស្កេនបើកលើ Apple/Google Maps បានភ្លាម។
+        - 📡 **100% Offline GNSS:** ដំណើរការតាមរយៈបន្ទះឈីប GPS ផ្ទាល់លើ iPhone ដោយមិនចាំបាច់មានសេវាអ៊ីនធឺណិតទូរស័ព្ទឡើយ!
+
+        ចុចប៊ូតុង **"Open Live TrackMap"** ខាងក្រោមដើម្បីចូលទៅកាន់ផ្ទាំង TrackMap ភ្លាមៗ!
+        """ : """
+        ### ⚡ GlassQR TrackMap & Live Speedometer Telemetry
+        *Processed via Apple Neural Engine in \(String(format: "%.1f", latency))ms • 100% Offline GPS*
+
+        **Superpowers Beyond Google Maps:**
+        - 🚀 **High-Precision Live Speedometer:** Real-time digital readout & chromatic arc gauge (km/h & mph toggle).
+        - 🌌 **Windshield HUD Mode (Head-Up Display):** Horizontally mirrored high-contrast projection designed for dashboard windshield reflection during night drives!
+        - 🛣️ **Speed-Gradient Breadcrumb Trails:** Dynamic color-coded GPS trajectory (Cyan=low speed, Green=cruise, Orange/Red=high speed).
+        - 🚨 **Overspeed Haptic Warning:** Configurable speed limit threshold with alert glow and sensory pulses.
+        - 📍 **Instant Geo-QR Integration:** 1-tap conversion of live coordinates and recorded trips into scan-ready vector QR codes.
+        - 📡 **100% Offline GNSS:** Telemetry operates directly off device hardware without cellular signal or data fees.
+
+        Tap **"Open Live TrackMap"** below to launch live navigation and telemetry!
+        """
+
+        let suggested = AISuggestedQR(
+            title: isKhmer ? "បើក TrackMap ផ្ទាល់" : "Launch TrackMap",
+            payload: "https://maps.apple.com/?ll=11.5564,104.9282&q=TrackMap+Live",
+            formatLabel: "GPS Telemetry & Speedometer",
+            iconName: "location.north.circle.fill",
+            action: .openTrackMap
+        )
+
+        let badge = AISecurityBadge(
+            level: .safe,
+            title: isKhmer ? "GNSS Offline 100%" : "Hardware GNSS Active",
+            details: isKhmer ? "គ្មានការបញ្ជូនទិន្នន័យទីតាំងទៅកាន់ Server ខាងក្រៅ" : "Zero location data leaves device memory."
+        )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 បើករបៀប HUD", "🇰🇭 ពិនិត្យល្បឿនបច្ចុប្បន្ន", "🇰🇭 បង្កើត Geo-QR ទីតាំង", "🇰🇭 កត់ត្រាផ្លូវបើកបរ"]
+            : ["Open Windshield HUD", "Check Live Speed", "Create Location Geo-QR", "Start Trip Record"]
+
+        return AIAgentMessage(
+            isUser: false,
+            text: text,
+            suggestedQR: suggested,
+            securityBadge: badge,
+            quickPrompts: prompts,
+            suggestedAction: .openTrackMap
+        )
+    }
 }
+

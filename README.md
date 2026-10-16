@@ -151,7 +151,15 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - **Pixel-Locked Viewfinder Reticle**: Subpixel-aligned camera cutout and reticle brackets sharing identical coordinate offsets and continuous squircle curvature.
   - **Uniform Circular Glass Controls**: Top HUD buttons and navigation bar items use `.buttonStyle(.glassCircle)` to ensure consistent circular proportions without vertical stretching.
   - Thread-safe camera capture running on a dedicated serial background queue with tap-to-focus and optical zoom.
-  - Automatic detection of simulator/preview environments with interactive bypass testing chips (including Apple Maps Geo simulation).
+- **Liquid Glass TrackMap & Live Speedometer Telemetry 🗺️🏎️**:
+  - **Beyond Google Maps Navigation**: Full-bleed interactive 3D MapKit map with traffic overlays, heading tracking, destination search, distance, ETA, and turn-by-turn directions.
+  - **High-Precision Live Speedometer**: Sub-second GPS digital readout & chromatic arc tachometer with seamless km/h ⇄ mph switching.
+  - **Windshield HUD Mode (Head-Up Display)**: Inverted/mirrored high-contrast projection designed for placing on car dashboards at night for holographic windshield reflection.
+  - **Speed-Gradient Breadcrumbs**: Real-time GPS path recording color-coded by velocity (Cyan=slow, Green=cruise, Orange/Red=high speed).
+  - **Overspeed Haptic Warning**: Configurable speed limit threshold with alert glow and physical sensory pulses.
+  - **Instant Geo-QR Integration**: 1-tap generation of styled Liquid Glass Geo-QR codes for live coordinates and recorded trips.
+  - **Full Khmer (ភាសាខ្មែរ 🇰🇭) & English Support**: Bilingual telemetry metrics, compass bearings, HUD controls, and route summaries.
+  - **100% Offline GPS Operation**: Telemetry operates directly from hardware GNSS receiver with zero cellular connectivity required.
 
 ### 3. Glass AI Copilot & Multi-Modal Security Agent 🧠✨
 - **Conversational Multi-Turn Dialogue (like ChatGPT & Gemini)**:

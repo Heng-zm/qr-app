@@ -718,6 +718,10 @@ public struct AIAssistantView: View {
         case .openWalletPass(let payload):
             walletPassInitialPayload = payload
             showWalletPassSheet = true
+        case .openTrackMap:
+            if let trackURL = URL(string: "glassqr://trackmap") {
+                openURL(trackURL)
+            }
         }
     }
 

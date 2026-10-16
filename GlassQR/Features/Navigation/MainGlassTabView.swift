@@ -13,6 +13,7 @@ public struct MainGlassTabView: View {
     public enum TabItem: String, CaseIterable, Identifiable {
         case generator = "Generate"
         case scanner = "Scan"
+        case trackmap = "TrackMap"
         case assistant = "AI Agent"
 
         public var id: String { rawValue }
@@ -21,6 +22,7 @@ public struct MainGlassTabView: View {
             switch self {
             case .generator: return "qrcode"
             case .scanner: return "qrcode.viewfinder"
+            case .trackmap: return "location.north.circle.fill"
             case .assistant: return "sparkles"
             }
         }
@@ -49,6 +51,12 @@ public struct MainGlassTabView: View {
                 }
                 .opacity(selectedTab == .scanner ? 1 : 0)
                 .allowsHitTesting(selectedTab == .scanner)
+
+                NavigationStack {
+                    TrackMapView()
+                }
+                .opacity(selectedTab == .trackmap ? 1 : 0)
+                .allowsHitTesting(selectedTab == .trackmap)
 
                 NavigationStack {
                     AIAssistantView(hasCompletedOnboarding: $hasCompletedOnboarding)
@@ -86,6 +94,8 @@ public struct MainGlassTabView: View {
                     selectedTab = .scanner
                 case "generate":
                     selectedTab = .generator
+                case "track", "trackmap", "map":
+                    selectedTab = .trackmap
                 case "assistant", "ai":
                     selectedTab = .assistant
                 default:
@@ -116,16 +126,16 @@ public struct MainGlassTabView: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 15, weight: selectedTab == tab ? .bold : .medium))
+                    .font(.system(size: 14, weight: selectedTab == tab ? .bold : .medium))
                     .symbolEffect(.bounce, value: selectedTab == tab)
 
                 Text(tab.rawValue)
-                    .font(.system(size: 12, weight: selectedTab == tab ? .bold : .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: selectedTab == tab ? .bold : .semibold, design: .rounded))
                     .lineLimit(1)
             }
-            .frame(minWidth: 80, maxWidth: .infinity)
+            .frame(minWidth: 54, maxWidth: .infinity)
             .padding(.vertical, 10)
             .foregroundStyle(
                 selectedTab == tab

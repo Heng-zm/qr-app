@@ -109,6 +109,7 @@ public enum AIQuickAction: Equatable {
     case saveContact(vcard: String)
     case sharePayload(text: String)
     case openWalletPass(payload: String)
+    case openTrackMap
 
     public var label: String {
         switch self {
@@ -118,6 +119,7 @@ public enum AIQuickAction: Equatable {
         case .saveContact: return "Save to Apple Contacts"
         case .sharePayload: return "Share Payload"
         case .openWalletPass: return "Customize in Pass Studio"
+        case .openTrackMap: return "Open Live TrackMap"
         }
     }
 
@@ -129,6 +131,7 @@ public enum AIQuickAction: Equatable {
         case .saveContact: return "person.crop.circle.badge.plus"
         case .sharePayload: return "square.and.arrow.up"
         case .openWalletPass: return "wallet.pass.fill"
+        case .openTrackMap: return "location.north.circle.fill"
         }
     }
 }
