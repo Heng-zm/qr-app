@@ -126,6 +126,7 @@ public struct GeneratorView: View {
 
     // Live Camera Text OCR (VisionKit)
     @State private var showOCRScannerSheet: Bool = false
+    @State private var showDocumentScannerSheet: Bool = false
     @State private var toastMessage: String? = nil
 
     // Live On-Device Translation
@@ -180,6 +181,12 @@ public struct GeneratorView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
+                    Button {
+                        showDocumentScannerSheet = true
+                    } label: {
+                        Label("Scan Physical Document (PDF & OCR)", systemImage: "doc.viewfinder")
+                    }
+
                     Button {
                         showOCRScannerSheet = true
                     } label: {
@@ -236,6 +243,14 @@ public struct GeneratorView: View {
                 }
                 .help("App Overview & Tour")
             }
+        }
+        .sheet(isPresented: $showDocumentScannerSheet) {
+            DocumentScannerSheetView(
+                isPresented: $showDocumentScannerSheet,
+                onApplyToGenerator: { text in
+                    applyScannedText(text)
+                }
+            )
         }
         .sheet(isPresented: $showOCRScannerSheet) {
             TextOCRSheetView(

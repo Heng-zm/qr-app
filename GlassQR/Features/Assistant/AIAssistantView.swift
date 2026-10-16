@@ -32,6 +32,7 @@ public struct AIAssistantView: View {
     @State private var nfcWritePayload: String = ""
     @State private var showSecretVaultUnlockSheet: Bool = false
     @State private var vaultUnlockPayload: String = ""
+    @State private var showDocumentScannerSheet: Bool = false
 
     var isEmbeddedInTab: Bool
     @FocusState private var isInputFocused: Bool
@@ -124,6 +125,15 @@ public struct AIAssistantView: View {
             SecretVaultUnlockSheetView(
                 isPresented: $showSecretVaultUnlockSheet,
                 encryptedPayload: vaultUnlockPayload
+            )
+        }
+        .sheet(isPresented: $showDocumentScannerSheet) {
+            DocumentScannerSheetView(
+                isPresented: $showDocumentScannerSheet,
+                onApplyToGenerator: { text in
+                    inputText = "Summarize and analyze this scanned document:\n\n" + text
+                    sendMessage()
+                }
             )
         }
         .overlay(alignment: .top) {
@@ -706,6 +716,17 @@ public struct AIAssistantView: View {
                     Image(systemName: "photo.badge.plus")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(attachedImage != nil ? Color.cyan : Color.white.opacity(0.75))
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                }
+
+                // Document Scanner Camera Button
+                Button {
+                    showDocumentScannerSheet = true
+                } label: {
+                    Image(systemName: "doc.viewfinder")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.orange)
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Color.white.opacity(0.08)))
                 }

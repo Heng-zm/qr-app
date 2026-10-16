@@ -55,6 +55,9 @@ public struct ScannerView: View {
     @State private var showTextOCRSheet: Bool = false
     @State private var initialOCRText: String = ""
 
+    // Multi-Page Document Scanner Studio (VisionKit)
+    @State private var showDocumentScannerSheet: Bool = false
+
     // NFC Smart Tag Studio
     @State private var showNFCStudioSheet: Bool = false
 
@@ -161,6 +164,14 @@ public struct ScannerView: View {
                 initialText: initialOCRText,
                 onApplyToGenerator: { text in
                     handleDetectedCode(text, symbology: "Vision OCR")
+                }
+            )
+        }
+        .sheet(isPresented: $showDocumentScannerSheet) {
+            DocumentScannerSheetView(
+                isPresented: $showDocumentScannerSheet,
+                onApplyToGenerator: { text in
+                    handleDetectedCode(text, symbology: "Document OCR")
                 }
             )
         }
@@ -489,8 +500,17 @@ public struct ScannerView: View {
             .padding(4)
             .glassEffect(.regular.interactive(), in: .capsule)
 
-            // Quick Tools Platter (4 balanced items, NO text wrap)
+            // Quick Tools Platter (5 balanced items, NO text wrap)
             HStack(spacing: 0) {
+                // Native Apple VisionKit Document Scanner Button
+                toolPlatterButton(
+                    title: "Scan Doc",
+                    icon: "doc.viewfinder",
+                    tint: Color.orange
+                ) {
+                    showDocumentScannerSheet = true
+                }
+
                 // Live Camera Text OCR Button
                 toolPlatterButton(
                     title: "Live OCR",
@@ -523,7 +543,7 @@ public struct ScannerView: View {
                 photoPlatterButton
             }
             .padding(.vertical, 8)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 4)
             .background(
                 Capsule()
                     .fill(Color(red: 0.09, green: 0.09, blue: 0.11).opacity(0.72))
@@ -551,7 +571,7 @@ public struct ScannerView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 ZStack {
                     Circle()
                         .fill(Color.white.opacity(0.12))
@@ -569,13 +589,13 @@ public struct ScannerView: View {
                         .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 2)
 
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(tint)
                 }
-                .frame(width: 48, height: 48)
+                .frame(width: 44, height: 44)
 
                 Text(title)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.88))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
@@ -588,7 +608,7 @@ public struct ScannerView: View {
 
     private var photoPlatterButton: some View {
         PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 ZStack {
                     Circle()
                         .fill(Color.white.opacity(0.12))
@@ -611,14 +631,14 @@ public struct ScannerView: View {
                             .scaleEffect(0.85)
                     } else {
                         Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Color(red: 0.75, green: 0.72, blue: 1.0))
                     }
                 }
-                .frame(width: 48, height: 48)
+                .frame(width: 44, height: 44)
 
                 Text("Photos")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.88))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
