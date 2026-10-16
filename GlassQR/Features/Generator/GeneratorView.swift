@@ -167,22 +167,22 @@ public struct GeneratorView: View {
                 stylingPlatter
                     .padding(.horizontal, 20)
 
-                // Crisp QR Code Display Card
-                qrDisplayCard
+                // Unified QR Code Showcase Card with Integrated Action Dock
+                qrShowcaseCard
+                    .padding(.horizontal, 20)
                     .padding(.vertical, 4)
 
-                // Action Bar (Copy, Save to Photos, Share)
-                if !currentPayload.isEmpty, let image = qrImage {
-                    actionBar(image: image)
-                        .padding(.horizontal, 24)
-                }
-
-                // Transient Notification Toast
-                if let msg = toastMessage {
-                    toastBanner(message: msg)
-                }
-
-                Spacer(minLength: 88)
+                Spacer(minLength: 24)
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: 104)
+        }
+        .overlay(alignment: .bottom) {
+            if let msg = toastMessage {
+                toastBanner(message: msg)
+                    .padding(.bottom, 108)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .scrollDismissesKeyboard(.interactively)
@@ -1017,22 +1017,164 @@ public struct GeneratorView: View {
         }
     }
 
-    private var qrDisplayCard: some View {
-        ZStack {
+    private var qrShowcaseCard: some View {
+        VStack(spacing: 0) {
             if let image = qrImage {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.25), radius: 18, x: 0, y: 8)
+                VStack(spacing: 14) {
+                    // Header Status Badges
+                    HStack {
+                        HStack(spacing: 5) {
+                            Image(systemName: selectedTemplate.icon)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Color.cyan)
+                            Text(selectedTemplate.rawValue)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundStyle(.white.opacity(0.92))
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.cyan.opacity(0.14)))
+                        .overlay(Capsule().stroke(Color.cyan.opacity(0.3), lineWidth: 0.75))
 
-                    Image(uiImage: image)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .padding(20)
+                        Spacer()
+
+                        Text("EC: \(selectedCorrectionLevel.label)")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.08)))
+                    }
+                    .padding(.horizontal, 4)
+
+                    // Crisp QR Code Canvas
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: Color.black.opacity(0.28), radius: 18, x: 0, y: 8)
+
+                        Image(uiImage: image)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(18)
+                    }
+                    .frame(width: 250, height: 250)
+                    .transition(.scale(scale: 0.94).combined(with: .opacity))
+
+                    // Integrated Action Buttons Dock
+                    HStack(spacing: 8) {
+                        // 1. Copy Button
+                        Button {
+                            UIPasteboard.general.image = image
+                            triggerToast("QR Image Copied")
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.cyan)
+                                Text("Copy")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.white)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.10))
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                            )
+                        }
+                        .buttonStyle(SquishScaleButtonStyle())
+
+                        // 2. Save to Photos Button
+                        Button {
+                            UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+                            triggerToast("Saved to Photos")
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.down.to.line")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.green)
+                                Text("Save")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.white)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.10))
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                            )
+                        }
+                        .buttonStyle(SquishScaleButtonStyle())
+
+                        // 3. Export & Share Menu
+                        Menu {
+                            ShareLink(
+                                item: Image(uiImage: image),
+                                preview: SharePreview("QR Code", image: Image(uiImage: image))
+                            ) {
+                                Label("Share PNG Image", systemImage: "photo")
+                            }
+
+                            Button {
+                                sharePDF()
+                            } label: {
+                                Label("Export Vector PDF", systemImage: "doc.text.fill")
+                            }
+
+                            Button {
+                                copySVGCode()
+                            } label: {
+                                Label("Copy Vector SVG", systemImage: "chevron.left.forwardslash.chevron.right")
+                            }
+
+                            Button {
+                                showNFCSheet = true
+                            } label: {
+                                Label("Write to Physical NFC Tag", systemImage: "wave.3.forward.circle.fill")
+                            }
+
+                            Button {
+                                showWalletPassSheet = true
+                            } label: {
+                                Label("Create Apple Wallet Pass (.pkpass)", systemImage: "wallet.pass.fill")
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color(red: 0.8, green: 0.5, blue: 1.0))
+                                Text("Export")
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Color.white)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(Color.white.opacity(0.6))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .background(
+                                Capsule()
+                                    .fill(Color(red: 0.45, green: 0.2, blue: 0.75).opacity(0.24))
+                                    .overlay(Capsule().stroke(Color(red: 0.7, green: 0.4, blue: 1.0).opacity(0.4), lineWidth: 1))
+                            )
+                        }
+                    }
+                    .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)
                 }
-                .frame(width: 250, height: 250)
-                .transition(.scale(scale: 0.94).combined(with: .opacity))
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color(red: 0.08, green: 0.09, blue: 0.13).opacity(0.92))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.35), radius: 20, x: 0, y: 8)
+                )
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -1055,76 +1197,6 @@ public struct GeneratorView: View {
                 .frame(width: 250, height: 250)
             }
         }
-    }
-
-    private func actionBar(image: UIImage) -> some View {
-        HStack(spacing: 8) {
-            // Copy Image
-            Button {
-                UIPasteboard.general.image = image
-                triggerToast("QR Image Copied")
-            } label: {
-                Label("Copy", systemImage: "doc.on.doc")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glass)
-
-            // Save to Photos
-            Button {
-                UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-                triggerToast("Saved to Photos")
-            } label: {
-                Label("Save", systemImage: "arrow.down.to.line")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glass)
-
-            // Export Menu (PNG, Vector PDF, Vector SVG)
-            Menu {
-                ShareLink(
-                    item: Image(uiImage: image),
-                    preview: SharePreview("QR Code", image: Image(uiImage: image))
-                ) {
-                    Label("Share PNG Image", systemImage: "photo")
-                }
-
-                Button {
-                    sharePDF()
-                } label: {
-                    Label("Export Vector PDF", systemImage: "doc.text.fill")
-                }
-
-                Button {
-                    copySVGCode()
-                } label: {
-                    Label("Copy Vector SVG", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-
-                Button {
-                    showNFCSheet = true
-                } label: {
-                    Label("Write to Physical NFC Tag", systemImage: "wave.3.forward.circle.fill")
-                }
-
-                Button {
-                    showWalletPassSheet = true
-                } label: {
-                    Label("Create Apple Wallet Pass (.pkpass)", systemImage: "wallet.pass.fill")
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text("Export")
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9))
-                }
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glassProminent)
-        }
-        .sensoryFeedback(.impact(flexibility: .soft), trigger: copyHapticTrigger)
     }
 
     private func sharePDF() {

@@ -134,7 +134,7 @@ public struct ScannerView: View {
 
                 // Bottom Minimalist Controls: Centered Zoom & Quick Tools Platter
                 bottomControls
-                    .padding(.bottom, 78)
+                    .padding(.bottom, 84)
                     .padding(.horizontal, 16)
             }
         }

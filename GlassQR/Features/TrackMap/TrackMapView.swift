@@ -167,7 +167,7 @@ public struct TrackMapView: View {
                 speedometerHUDPlatter
             }
             .padding(.horizontal, 14)
-            .padding(.bottom, 72) // Space for floating bottom tab bar
+            .padding(.bottom, 84) // Space for floating bottom tab bar
         }
         .onAppear {
             manager.startTracking()

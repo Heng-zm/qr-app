@@ -114,7 +114,12 @@ public struct MainGlassTabView: View {
             }
         }
         .padding(6)
+        .background(
+            Capsule()
+                .fill(Color(red: 0.07, green: 0.08, blue: 0.12).opacity(0.88))
+        )
         .glassEffect(.regular, in: .capsule)
+        .shadow(color: Color.black.opacity(0.4), radius: 16, x: 0, y: 6)
         .sensoryFeedback(.selection, trigger: selectedTab)
     }
 
