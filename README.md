@@ -133,7 +133,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Supports all standard symbologies: **QR Code**, **EAN-13**, **EAN-8**, **UPC-E**, **Code 128**, **Code 39**, **Code 93**, **Data Matrix**, **PDF417**, and **Aztec**.
   - **Instant Audio Chime**: Subtle confirmation sound effect and haptic response on code recognition.
   - **One-Tap Product Lookups**: Instant Google and Amazon search buttons for retail product barcodes.
-  - **Apple Maps Geo Location Studio (`MapLocationPickerView`)**: Dedicated Geo tool in scanner quick tools allowing users to drop pins on Apple Maps, geocode locations with cancellable async Task debouncing, inspect GPS coordinates, and scan or generate location codes.
+  - **Apple Maps Geo Location Studio (`MapLocationPickerView`)**: Interactive MapKit pin-dropper supporting **tap-to-drop**, **long-press drop**, **draggable marker pins**, satellite/hybrid aerial toggles, and instant street-level reverse geocoding with cancellable async Task debouncing.
   - **Ergonomic Quick Tools Platter & Generator Tools Menu**: Center-aligned floating zoom pill (`1x | 2x | 3x`) and quick tools platter with zero text wrapping. Generator view features a compact Liquid Glass "Tools" menu eliminating horizontal header clipping.
   - **Fluid Keyboard Docking & Auto-Hiding Tab Bar**: When typing in AI Copilot or Generator fields, the floating tab bar gracefully transitions away and input bars dock cleanly above the iOS keyboard.
   - **Scrollable Result Sheet**: Result sheets adapt smoothly to `.medium` and `.large` presentation detents with zero button clipping.
