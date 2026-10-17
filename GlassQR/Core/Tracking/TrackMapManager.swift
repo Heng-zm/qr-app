@@ -610,7 +610,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
                 closestPoint = MKMapPoint(x: p1.x + t * dx, y: p1.y + t * dy)
             }
 
-            let dist = MKMetersBetweenMapPoints(point, closestPoint)
+            let dist = point.distance(to: closestPoint)
             if dist < minDistance {
                 minDistance = dist
             }
