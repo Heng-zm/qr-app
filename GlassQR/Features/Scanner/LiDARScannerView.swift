@@ -2,23 +2,25 @@
 //  LiDARScannerView.swift
 //  GlassQR
 //
-//  Next-Gen Liquid Glass LiDAR 3D Laser Rangefinder, Night Depth Scanner & AR Hologram Studio.
-//  Uses Apple LiDAR Time-of-Flight hardware to measure millimeter-precision distance,
-//  surface orientation angles, 0% light night vision depth heatmaps, and anchor 3D AR Holograms.
+//  Liquid Glass LiDAR laser rangefinder, depth-mesh scanner & AR hologram studio.
+//  Uses Apple LiDAR time-of-flight hardware for distance, surface orientation,
+//  a depth-mesh overlay, and anchors a real QR hologram in AR space.
+//
+//  Requires NSCameraUsageDescription in Info.plist.
 //
 
 import SwiftUI
 import ARKit
 import SceneKit
+import Combine
 
 public struct LiDARScannerView: View {
     @ObservedObject var manager = LiDARManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var isKhmerLanguage: Bool = false
-    @State private var showHologramCard: Bool = false
     @State private var toastMessage: String? = nil
-    @State private var pulseScale: CGFloat = 1.0
+    @State private var ringRotation: Double = 0
 
     let onCodeScanned: ((String, String) -> Void)?
 
@@ -28,22 +30,24 @@ public struct LiDARScannerView: View {
 
     public var body: some View {
         ZStack {
-            // 1. Live ARKit / LiDAR Viewport Layer
+            // 1. Live ARKit / LiDAR viewport (does not observe the manager itself;
+            //    the coordinator subscribes only to what it needs)
             LiDARARViewRepresentable(manager: manager)
                 .ignoresSafeArea()
 
-            // 2. Night Vision Thermal / Infrared Phosphor Overlay
+            // 2. Night-vision style overlay, tinted by the selected palette
             if manager.isNightVisionActive {
-                nightVisionPhosphorOverlay
+                nightVisionOverlay
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
+                    .transition(.opacity)
             }
 
-            // 3. Central Tactical Laser Rangefinder Crosshair Reticle
+            // 3. Laser reticle
             tacticalLaserReticle
                 .allowsHitTesting(false)
 
-            // 4. Top Telemetry Floating Command Bar
+            // 4. HUD
             VStack(spacing: 8) {
                 topCommandBar
                     .padding(.top, 14)
@@ -51,7 +55,6 @@ public struct LiDARScannerView: View {
 
                 Spacer()
 
-                // 3D Floating AR Hologram Card
                 if manager.lastDetectedCode != nil {
                     floatingHologramCard
                         .padding(.horizontal, 16)
@@ -59,13 +62,12 @@ public struct LiDARScannerView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
-                // Bottom Laser Rangefinder Telemetry Platter
                 bottomTelemetryPlatter
                     .padding(.horizontal, 16)
                     .padding(.bottom, 24)
             }
 
-            // Toast Alert Pill
+            // Toast
             if let toast = toastMessage {
                 VStack {
                     Spacer().frame(height: 90)
@@ -79,13 +81,19 @@ public struct LiDARScannerView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                     Spacer()
                 }
+                .allowsHitTesting(false)
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: manager.lastDetectedCode != nil)
         .onAppear {
             manager.startSession()
+            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+                ringRotation = 360
+            }
         }
         .onDisappear {
             manager.stopSession()
+            manager.clearHologram()
         }
     }
 
@@ -93,7 +101,6 @@ public struct LiDARScannerView: View {
 
     private var topCommandBar: some View {
         HStack(spacing: 10) {
-            // Dismiss Button
             Button {
                 dismiss()
             } label: {
@@ -104,39 +111,45 @@ public struct LiDARScannerView: View {
                     .background(Color.black.opacity(0.55), in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
             }
+            .accessibilityLabel(isKhmerLanguage ? "បិទ" : "Close")
 
-            // Hardware LiDAR Status Pill
             HStack(spacing: 6) {
+                let statusColor: Color = manager.isHardwareLiDAR ? .green : .orange
                 Circle()
-                    .fill(manager.isHardwareLiDAR ? Color.green : Color.orange)
+                    .fill(statusColor)
                     .frame(width: 8, height: 8)
-                    .shadow(color: (manager.isHardwareLiDAR ? Color.green : Color.orange).opacity(0.8), radius: 6)
+                    .shadow(color: statusColor.opacity(0.8), radius: 6)
 
                 Text(manager.isHardwareLiDAR ? "LiDAR HARDWARE" : "LiDAR SIMULATOR")
                     .font(.system(size: 10, weight: .black, design: .monospaced))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color.black.opacity(0.65), in: Capsule())
             .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Night Vision Toggle (0% Light Infrared Mode)
+            // Night vision toggle
             Button {
                 manager.toggleNightVision()
-                triggerToast(manager.isNightVisionActive ? (isKhmerLanguage ? "បើកមុខងារមើលពេលយប់ 0% ពន្លឺ" : "Night Vision ON (0% Light)") : (isKhmerLanguage ? "បិទមុខងារមើលពេលយប់" : "Night Vision OFF"))
+                triggerToast(manager.isNightVisionActive
+                             ? (isKhmerLanguage ? "បើកមុខងារមើលពេលយប់" : "Night Vision ON")
+                             : (isKhmerLanguage ? "បិទមុខងារមើលពេលយប់" : "Night Vision OFF"))
             } label: {
                 Image(systemName: manager.isNightVisionActive ? "moon.stars.fill" : "moon.stars")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(manager.isNightVisionActive ? Color.green : Color.white)
+                    .foregroundStyle(manager.isNightVisionActive ? manager.depthHeatmapMode.tintColor : Color.white)
                     .frame(width: 40, height: 40)
                     .background(Color.black.opacity(0.55), in: Circle())
-                    .overlay(Circle().stroke(manager.isNightVisionActive ? Color.green.opacity(0.6) : Color.white.opacity(0.2), lineWidth: 1))
+                    .overlay(Circle().stroke(manager.isNightVisionActive ? manager.depthHeatmapMode.tintColor.opacity(0.6) : Color.white.opacity(0.2), lineWidth: 1))
             }
+            .accessibilityLabel(isKhmerLanguage ? "មើលពេលយប់" : "Night vision")
 
-            // Depth Color Palette Cycler
+            // Depth palette cycler
             Button {
                 manager.cycleDepthPalette()
                 triggerToast("Palette: \(manager.depthHeatmapMode.rawValue)")
@@ -148,12 +161,11 @@ public struct LiDARScannerView: View {
                     .background(Color.black.opacity(0.55), in: Circle())
                     .overlay(Circle().stroke(manager.depthHeatmapMode.tintColor.opacity(0.5), lineWidth: 1))
             }
+            .accessibilityLabel(isKhmerLanguage ? "ពណ៌ជម្រៅ" : "Depth palette")
 
-            // Language Switcher (🇰🇭 / 🇺🇸)
+            // Language switcher
             Button {
-                withAnimation {
-                    isKhmerLanguage.toggle()
-                }
+                withAnimation { isKhmerLanguage.toggle() }
             } label: {
                 Text(isKhmerLanguage ? "🇰🇭" : "🇺🇸")
                     .font(.system(size: 15))
@@ -161,56 +173,41 @@ public struct LiDARScannerView: View {
                     .background(Color.black.opacity(0.55), in: Circle())
                     .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 1))
             }
+            .accessibilityLabel(isKhmerLanguage ? "ភាសា" : "Language")
         }
     }
 
-    // MARK: - Tactical Laser Rangefinder Reticle
+    // MARK: - Laser Reticle
 
     private var tacticalLaserReticle: some View {
-        ZStack {
-            // Rotating Laser Target Ring
+        let zone = manager.targetZoneColor()
+        return ZStack {
+            // Rotating ring
             Circle()
                 .stroke(
-                    AngularGradient(
-                        colors: [
-                            manager.targetZoneColor(),
-                            manager.targetZoneColor().opacity(0.2),
-                            manager.targetZoneColor()
-                        ],
-                        center: .center
-                    ),
+                    AngularGradient(colors: [zone, zone.opacity(0.2), zone], center: .center),
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
                 )
                 .frame(width: 240, height: 240)
-                .rotationEffect(.degrees(pulseScale * 360))
-                .animation(.linear(duration: 8).repeatForever(autoreverses: false), value: pulseScale)
+                .rotationEffect(.degrees(ringRotation))
 
-            // Center Precision Crosshair & Dot
+            // Center crosshair
             ZStack {
-                Rectangle()
-                    .fill(manager.targetZoneColor())
-                    .frame(width: 1, height: 20)
-                Rectangle()
-                    .fill(manager.targetZoneColor())
-                    .frame(width: 20, height: 1)
-                Circle()
-                    .fill(manager.targetZoneColor())
-                    .frame(width: 6, height: 6)
-                    .shadow(color: manager.targetZoneColor(), radius: 6)
+                Rectangle().fill(zone).frame(width: 1, height: 20)
+                Rectangle().fill(zone).frame(width: 20, height: 1)
+                Circle().fill(zone).frame(width: 6, height: 6)
+                    .shadow(color: zone, radius: 6)
             }
 
-            // Corner Brackets
+            // Corner brackets (each is a fixed-size shape rotated about the reticle center)
             ForEach([0, 90, 180, 270], id: \.self) { angle in
-                Path { path in
-                    path.move(to: CGPoint(x: -110, y: -90))
-                    path.addLine(to: CGPoint(x: -110, y: -110))
-                    path.addLine(to: CGPoint(x: -90, y: -110))
-                }
-                .stroke(manager.targetZoneColor(), lineWidth: 2.5)
-                .rotationEffect(.degrees(Double(angle)))
+                CornerBracket(length: 20)
+                    .stroke(zone, lineWidth: 2.5)
+                    .frame(width: 220, height: 220)
+                    .rotationEffect(.degrees(Double(angle)))
             }
 
-            // Real-Time Distance HUD Badge above reticle
+            // Distance badge
             VStack(spacing: 2) {
                 HStack(spacing: 5) {
                     Image(systemName: "scope")
@@ -218,12 +215,12 @@ public struct LiDARScannerView: View {
                     Text(manager.formattedDistance(isKhmer: isKhmerLanguage))
                         .font(.system(size: 15, weight: .heavy, design: .monospaced))
                 }
-                .foregroundStyle(manager.targetZoneColor())
+                .foregroundStyle(zone)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
                 .background(Color.black.opacity(0.75), in: Capsule())
-                .overlay(Capsule().stroke(manager.targetZoneColor().opacity(0.6), lineWidth: 1))
-                .shadow(color: manager.targetZoneColor().opacity(0.4), radius: 8)
+                .overlay(Capsule().stroke(zone.opacity(0.6), lineWidth: 1))
+                .shadow(color: zone.opacity(0.4), radius: 8)
 
                 Text(isKhmerLanguage ? "ចម្ងាយពិត LiDAR" : "LiDAR TOF RANGE")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
@@ -231,77 +228,76 @@ public struct LiDARScannerView: View {
             }
             .offset(y: -140)
         }
-        .onAppear {
-            pulseScale = 2.0
-        }
     }
 
-    // MARK: - Night Vision Phosphor Green Overlay
+    // MARK: - Night Vision Overlay
 
-    private var nightVisionPhosphorOverlay: some View {
-        ZStack {
-            Color.green.opacity(0.14)
-                .blendMode(.screen)
+    private var nightVisionOverlay: some View {
+        let tint = manager.depthHeatmapMode.tintColor
+        return ZStack {
+            tint.opacity(0.14).blendMode(.screen)
 
-            // Scanning line scanlines effect
-            VStack(spacing: 4) {
-                ForEach(0..<100, id: \.self) { _ in
-                    Rectangle()
-                        .fill(Color.black.opacity(0.08))
-                        .frame(height: 1)
-                    Spacer()
+            // Vignette
+            RadialGradient(colors: [.clear, .black.opacity(0.55)],
+                           center: .center, startRadius: 120, endRadius: 520)
+
+            // Scanlines
+            Canvas { ctx, size in
+                var y: CGFloat = 0
+                while y < size.height {
+                    ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)),
+                             with: .color(.black.opacity(0.12)))
+                    y += 4
                 }
             }
         }
     }
 
-    // MARK: - 3D Holographic Card
+    // MARK: - Hologram Card
 
     private var floatingHologramCard: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles.square.filled.on.square")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Color.cyan)
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles.square.filled.on.square")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.cyan)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(isKhmerLanguage ? "កូដ QR 3D Hologram" : "3D Holographic QR Detected")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isKhmerLanguage ? "កូដ QR 3D Hologram" : "3D Holographic QR Detected")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
 
-                    Text(manager.lastDetectedCode ?? "")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                // Copy Action
-                Button {
-                    if let code = manager.lastDetectedCode {
-                        UIPasteboard.general.string = code
-                        triggerToast(isKhmerLanguage ? "បានចម្លងទៅ Clipboard" : "Copied to Clipboard")
-                    }
-                } label: {
-                    Image(systemName: "doc.on.doc.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(Color.white.opacity(0.15), in: Circle())
-                }
-
-                // Dismiss Hologram
-                Button {
-                    manager.clearHologram()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.6))
-                        .frame(width: 28, height: 28)
-                        .background(Color.white.opacity(0.1), in: Circle())
-                }
+                Text(manager.lastDetectedCode ?? "")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
             }
+
+            Spacer(minLength: 0)
+
+            Button {
+                if let code = manager.lastDetectedCode {
+                    UIPasteboard.general.string = code
+                    triggerToast(isKhmerLanguage ? "បានចម្លងទៅ Clipboard" : "Copied to Clipboard")
+                }
+            } label: {
+                Image(systemName: "doc.on.doc.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(Color.white.opacity(0.15), in: Circle())
+            }
+            .accessibilityLabel(isKhmerLanguage ? "ចម្លង" : "Copy")
+
+            Button {
+                manager.clearHologram()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .frame(width: 28, height: 28)
+                    .background(Color.white.opacity(0.1), in: Circle())
+            }
+            .accessibilityLabel(isKhmerLanguage ? "បិទ Hologram" : "Dismiss hologram")
         }
         .padding(12)
         .background(
@@ -318,38 +314,36 @@ public struct LiDARScannerView: View {
     // MARK: - Bottom Telemetry Platter
 
     private var bottomTelemetryPlatter: some View {
-        VStack(spacing: 10) {
-            // Primary Metrics Row
+        let isFlat = manager.surfaceTiltDegrees < 15
+        return VStack(spacing: 10) {
             HStack(spacing: 12) {
-                // Surface Tilt Indicator
                 telemetryCard(
                     title: isKhmerLanguage ? "មុំផ្ទៃ" : "SURFACE TILT",
                     value: String(format: "%.0f°", manager.surfaceTiltDegrees),
-                    subtext: manager.surfaceTiltDegrees < 15 ? (isKhmerLanguage ? "កាត់កែងល្អ" : "Flat / Ortho") : (isKhmerLanguage ? "ផ្អៀងខ្លាំង" : "Oblique"),
+                    subtext: isFlat ? (isKhmerLanguage ? "កាត់កែងល្អ" : "Flat / Ortho")
+                                    : (isKhmerLanguage ? "ផ្អៀងខ្លាំង" : "Oblique"),
                     icon: "angle",
-                    tint: manager.surfaceTiltDegrees < 20 ? Color.green : Color.orange
+                    tint: isFlat ? .green : .orange
                 )
 
-                // Laser Lock Confidence
                 telemetryCard(
                     title: isKhmerLanguage ? "ទំនុកចិត្តឡាស៊ែរ" : "LASER LOCK",
                     value: String(format: "%.1f%%", manager.laserConfidencePercent),
-                    subtext: manager.isTargetLocked ? (isKhmerLanguage ? "ជាប់គោលដៅ" : "Locked") : (isKhmerLanguage ? "កំពុងរាវរក" : "Searching"),
+                    subtext: manager.isTargetLocked ? (isKhmerLanguage ? "ជាប់គោលដៅ" : "Locked")
+                                                    : (isKhmerLanguage ? "កំពុងរាវរក" : "Searching"),
                     icon: "target",
-                    tint: Color.cyan
+                    tint: .cyan
                 )
 
-                // Target Physical Size Estimation
                 telemetryCard(
-                    title: isKhmerLanguage ? "ទំហំពិត QR" : "TARGET SIZE",
-                    value: String(format: "%.0fcm", manager.estimatedPhysicalWidthCm),
-                    subtext: String(format: "%.0f×%.0fcm", manager.estimatedPhysicalWidthCm, manager.estimatedPhysicalHeightCm),
+                    title: isKhmerLanguage ? "ទំហំប៉ាន់ស្មាន" : "EST. SIZE",
+                    value: String(format: "%.0f cm", manager.estimatedPhysicalWidthCm),
+                    subtext: isKhmerLanguage ? "ទទឹងក្នុងស៊ុម" : "frame width",
                     icon: "ruler",
-                    tint: Color.purple
+                    tint: .purple
                 )
             }
 
-            // Secondary Info Bar: Point Cloud & Demo QR Trigger
             HStack(spacing: 8) {
                 HStack(spacing: 4) {
                     Image(systemName: "point.3.connected.trianglepath.dotted")
@@ -362,12 +356,11 @@ public struct LiDARScannerView: View {
 
                 Spacer()
 
-                // Test AR Hologram button (helpful for testing on any device)
                 Button {
-                    let testPayload = "https://glassqr.apple.com/lidar/demo"
+                    let testPayload = "https://example.com/lidar/demo"
                     manager.anchorHologram(code: testPayload, symbology: "QR Code")
-                    onCodeScanned?(testPayload, "LiDAR Hologram")
-                    triggerToast(isKhmerLanguage ? "បានបាញ់ Hologram 3D លើ QR" : "Projected 3D AR Hologram!")
+                    onCodeScanned?(testPayload, "QR Code")
+                    triggerToast(isKhmerLanguage ? "បានបាញ់ Hologram 3D" : "Projected 3D AR Hologram!")
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "cube.transparent")
@@ -403,11 +396,15 @@ public struct LiDARScannerView: View {
                 Text(title)
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
 
             Text(value)
                 .font(.system(size: 16, weight: .black, design: .monospaced))
                 .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             Text(subtext)
                 .font(.system(size: 9, weight: .medium))
@@ -426,83 +423,251 @@ public struct LiDARScannerView: View {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
             withAnimation {
-                if self.toastMessage == text {
-                    self.toastMessage = nil
-                }
+                if toastMessage == text { toastMessage = nil }
             }
         }
+    }
+}
+
+// MARK: - Corner Bracket Shape
+
+private struct CornerBracket: Shape {
+    let length: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY + length))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.minX + length, y: rect.minY))
+        return p
     }
 }
 
 // MARK: - ARKit LiDAR View Representable
 
 public struct LiDARARViewRepresentable: UIViewRepresentable {
-    @ObservedObject var manager: LiDARManager
+    // Not @ObservedObject: observing would call updateUIView ~20x/second.
+    // The coordinator subscribes to only the properties it needs.
+    let manager: LiDARManager
 
     public func makeCoordinator() -> Coordinator {
         Coordinator(manager: manager)
     }
 
     public func makeUIView(context: Context) -> ARSCNView {
-        let scnView = ARSCNView()
+        let scnView = ARSCNView(frame: .zero)
         scnView.session = manager.arSession
         scnView.delegate = context.coordinator
-        scnView.autoenablesDefaultLighting = true
         scnView.automaticallyUpdatesLighting = true
         scnView.antialiasingMode = .multisampling4X
-        context.coordinator.scnView = scnView
+        context.coordinator.attach(to: scnView)
         return scnView
     }
 
-    public func updateUIView(_ scnView: ARSCNView, context: Context) {
-        context.coordinator.updateHologramNode()
+    public func updateUIView(_ scnView: ARSCNView, context: Context) {}
+
+    public static func dismantleUIView(_ uiView: ARSCNView, coordinator: Coordinator) {
+        uiView.delegate = nil
+        coordinator.detach()
     }
 
     public final class Coordinator: NSObject, ARSCNViewDelegate {
-        var manager: LiDARManager
-        weak var scnView: ARSCNView?
+        private let manager: LiDARManager
+        private weak var scnView: ARSCNView?
+        private var cancellables = Set<AnyCancellable>()
+
+        // Hologram state (main thread only)
         private var hologramNode: SCNNode?
+        private var lastHologramPosition: SIMD3<Float>?
+        private var lastHologramCode: String?
+
+        // Mesh state (read from the SceneKit render thread, so lock-protected)
+        private let lock = NSLock()
+        private var _meshTint: UIColor = .systemCyan
+        private var _meshVisible = false
 
         init(manager: LiDARManager) {
             self.manager = manager
+            super.init()
         }
 
-        func updateHologramNode() {
+        func attach(to view: ARSCNView) {
+            scnView = view
+
+            Publishers.CombineLatest(manager.$arHologramPosition, manager.$lastDetectedCode)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] position, code in
+                    self?.updateHologram(position: position, code: code)
+                }
+                .store(in: &cancellables)
+
+            manager.$depthHeatmapMode
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] mode in
+                    self?.setMesh(tint: UIColor(mode.tintColor))
+                }
+                .store(in: &cancellables)
+
+            manager.$isNightVisionActive
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] active in
+                    self?.setMesh(visible: active)
+                }
+                .store(in: &cancellables)
+        }
+
+        func detach() {
+            cancellables.removeAll()
+            hologramNode?.removeFromParentNode()
+            hologramNode = nil
+        }
+
+        // MARK: Depth mesh (LiDAR scene reconstruction)
+
+        private var meshTint: UIColor { lock.lock(); defer { lock.unlock() }; return _meshTint }
+        private var meshVisible: Bool { lock.lock(); defer { lock.unlock() }; return _meshVisible }
+
+        private func setMesh(tint: UIColor? = nil, visible: Bool? = nil) {
+            lock.lock()
+            if let tint = tint { _meshTint = tint }
+            if let visible = visible { _meshVisible = visible }
+            let t = _meshTint, v = _meshVisible
+            lock.unlock()
+
+            scnView?.scene.rootNode
+                .childNodes(passingTest: { node, _ in node.name == "lidarMesh" })
+                .forEach { node in
+                    node.isHidden = !v
+                    node.geometry?.materials.forEach { $0.diffuse.contents = t.withAlphaComponent(0.7) }
+                }
+        }
+
+        private func makeMeshMaterial() -> SCNMaterial {
+            let m = SCNMaterial()
+            m.fillMode = .lines
+            m.lightingModel = .constant
+            m.isDoubleSided = true
+            m.diffuse.contents = meshTint.withAlphaComponent(0.7)
+            return m
+        }
+
+        private func makeGeometry(from mesh: ARMeshGeometry) -> SCNGeometry {
+            let v = mesh.vertices
+            let vertexSource = SCNGeometrySource(buffer: v.buffer,
+                                                 vertexFormat: v.format,
+                                                 semantic: .vertex,
+                                                 vertexCount: v.count,
+                                                 dataOffset: v.offset,
+                                                 dataStride: v.stride)
+            let f = mesh.faces
+            // Copy the index data: the Metal buffer is reused by ARKit between updates.
+            let data = Data(bytes: f.buffer.contents(),
+                            count: f.indexCountPerPrimitive * f.bytesPerIndex * f.count)
+            let element = SCNGeometryElement(data: data,
+                                             primitiveType: .triangles,
+                                             primitiveCount: f.count,
+                                             bytesPerIndex: f.bytesPerIndex)
+            let geometry = SCNGeometry(sources: [vertexSource], elements: [element])
+            geometry.materials = [makeMeshMaterial()]
+            return geometry
+        }
+
+        public func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
+            guard let meshAnchor = anchor as? ARMeshAnchor else { return nil }
+            let node = SCNNode(geometry: makeGeometry(from: meshAnchor.geometry))
+            node.name = "lidarMesh"
+            node.isHidden = !meshVisible
+            return node
+        }
+
+        public func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+            guard let meshAnchor = anchor as? ARMeshAnchor else { return }
+            node.geometry = makeGeometry(from: meshAnchor.geometry)
+        }
+
+        // MARK: Hologram
+
+        private func updateHologram(position: SIMD3<Float>?, code: String?) {
             guard let scnView = scnView else { return }
 
-            if let pos = manager.arHologramPosition {
-                if hologramNode == nil {
-                    let node = createHologramNode()
-                    node.position = SCNVector3(pos.x, pos.y, pos.z)
-                    scnView.scene.rootNode.addChildNode(node)
-                    self.hologramNode = node
-                } else {
-                    hologramNode?.position = SCNVector3(pos.x, pos.y, pos.z)
-                }
-            } else {
+            guard let position = position, let code = code else {
                 hologramNode?.removeFromParentNode()
                 hologramNode = nil
+                lastHologramPosition = nil
+                lastHologramCode = nil
+                return
+            }
+
+            if hologramNode == nil {
+                let node = makeHologramNode(code: code)
+                node.position = SCNVector3(position.x, position.y, position.z)
+                scnView.scene.rootNode.addChildNode(node)
+                hologramNode = node
+                lastHologramPosition = position
+                lastHologramCode = code
+                return
+            }
+
+            // Only touch what changed so the levitation animation isn't reset.
+            if code != lastHologramCode, let plane = hologramNode?.childNode(withName: "qrPlane", recursively: true)?.geometry {
+                plane.firstMaterial?.diffuse.contents = qrImage(for: code)
+                lastHologramCode = code
+            }
+            if position != lastHologramPosition {
+                hologramNode?.position = SCNVector3(position.x, position.y, position.z)
+                lastHologramPosition = position
             }
         }
 
-        private func createHologramNode() -> SCNNode {
-            // Create a glowing 3D plane anchored in AR space
+        private func makeHologramNode(code: String) -> SCNNode {
+            let container = SCNNode()
+
+            // Always face the camera (rotate around Y only so it stays upright)
+            let billboard = SCNBillboardConstraint()
+            billboard.freeAxes = .Y
+            container.constraints = [billboard]
+
+            // Glowing backing plate
+            let glow = SCNPlane(width: 0.19, height: 0.19)
+            glow.cornerRadius = 0.02
+            let glowMat = SCNMaterial()
+            glowMat.lightingModel = .constant
+            glowMat.diffuse.contents = UIColor.cyan.withAlphaComponent(0.35)
+            glowMat.isDoubleSided = true
+            glow.materials = [glowMat]
+            let glowNode = SCNNode(geometry: glow)
+            glowNode.position = SCNVector3(0, 0, -0.002)
+
+            // Actual QR code texture
             let plane = SCNPlane(width: 0.16, height: 0.16)
-            plane.cornerRadius = 0.02
-            let material = SCNMaterial()
-            material.diffuse.contents = UIColor.systemCyan.withAlphaComponent(0.85)
-            material.emission.contents = UIColor.cyan.withAlphaComponent(0.4)
-            plane.materials = [material]
+            let mat = SCNMaterial()
+            mat.lightingModel = .constant
+            mat.diffuse.contents = qrImage(for: code) ?? UIColor.white
+            mat.diffuse.magnificationFilter = .nearest
+            mat.isDoubleSided = true
+            plane.materials = [mat]
+            let qrNode = SCNNode(geometry: plane)
+            qrNode.name = "qrPlane"
 
-            let node = SCNNode(geometry: plane)
-            // Gentle continuous levitation animation
-            let moveUp = SCNAction.moveBy(x: 0, y: 0.015, z: 0, duration: 1.2)
-            moveUp.timingMode = .easeInEaseOut
-            let moveDown = moveUp.reversed()
-            let sequence = SCNAction.sequence([moveUp, moveDown])
-            node.runAction(SCNAction.repeatForever(sequence))
+            // Levitation animation lives on a child so position updates don't fight it
+            let floater = SCNNode()
+            floater.addChildNode(glowNode)
+            floater.addChildNode(qrNode)
+            let up = SCNAction.moveBy(x: 0, y: 0.015, z: 0, duration: 1.2)
+            up.timingMode = .easeInEaseOut
+            floater.runAction(.repeatForever(.sequence([up, up.reversed()])))
 
-            return node
+            container.addChildNode(floater)
+            return container
+        }
+
+        private func qrImage(for code: String) -> UIImage? {
+            guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+            filter.setValue(Data(code.utf8), forKey: "inputMessage")
+            filter.setValue("M", forKey: "inputCorrectionLevel")
+            guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
+                  let cg = CIContext().createCGImage(output, from: output.extent) else { return nil }
+            return UIImage(cgImage: cg)
         }
     }
-}
+}

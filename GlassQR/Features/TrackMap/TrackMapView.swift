@@ -65,7 +65,7 @@ public struct TrackMapView: View {
                 if !searchResults.isEmpty {
                     searchResultsDropdown
                 } else if let route = manager.activeRoute {
-                    activeRouteBanner(route: route)
+                    activeNavigationGuidanceCard(route: route)
                 }
 
                 Spacer()
@@ -291,69 +291,255 @@ public struct TrackMapView: View {
         .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
     }
 
-    private func activeRouteBanner(route: MKRoute) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.triangle.turn.up.right.circle.fill")
-                        .foregroundStyle(.green)
-                    Text(manager.destinationMapItem?.name ?? (isKhmerLanguage ? "ទិសដៅ" : "Route Destination"))
-                        .font(.system(size: 13, weight: .bold))
+    private func activeNavigationGuidanceCard(route: MKRoute) -> some View {
+        VStack(spacing: 8) {
+            // Main Turn-by-Turn Maneuver Row
+            HStack(spacing: 12) {
+                // Large Maneuver Icon Box
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: manager.hasArrivedAtDestination
+                                    ? [Color.green.opacity(0.85), Color.mint.opacity(0.7)]
+                                    : manager.isOffRoute
+                                    ? [Color.orange.opacity(0.85), Color.red.opacity(0.7)]
+                                    : [Color.cyan.opacity(0.85), Color.blue.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                        .shadow(
+                            color: (manager.hasArrivedAtDestination ? Color.green : (manager.isOffRoute ? Color.orange : Color.cyan)).opacity(0.4),
+                            radius: 8, x: 0, y: 3
+                        )
+
+                    Image(systemName: manager.currentManeuverIcon)
+                        .font(.system(size: 22, weight: .black))
                         .foregroundStyle(.white)
-                        .lineLimit(1)
                 }
 
-                HStack(spacing: 10) {
-                    Text(manager.unit.formatDistance(meters: route.distance, isKhmer: isKhmerLanguage))
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.cyan)
+                // Maneuver Distance and Step Instruction
+                VStack(alignment: .leading, spacing: 2) {
+                    if manager.hasArrivedAtDestination {
+                        Text(isKhmerLanguage ? "បានមកដល់ទិសដៅហើយ!" : "You Have Arrived!")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.green)
 
-                    Text("•")
-                        .foregroundStyle(.white.opacity(0.4))
+                        Text(manager.destinationMapItem?.name ?? (isKhmerLanguage ? "ទិសដៅ" : "Destination"))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(1)
+                    } else if manager.isOffRoute {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .orange))
+                                .scaleEffect(0.7)
+                            Text(isKhmerLanguage ? "កំពុងគណនាផ្លូវឡើងវិញ..." : "Recalculating Route...")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.orange)
+                        }
 
-                    let minutes = Int(route.expectedTravelTime / 60)
-                    Text("\(minutes) \(isKhmerLanguage ? "នាទី" : "mins")")
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        Text(manager.unit.formatDistance(meters: manager.distanceToDestination, isKhmer: isKhmerLanguage))
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.6))
+                    } else {
+                        HStack(spacing: 6) {
+                            Text(manager.unit.formatDistance(meters: manager.distanceToNextStep, isKhmer: isKhmerLanguage))
+                                .font(.system(size: 18, weight: .black, design: .monospaced))
+                                .foregroundStyle(.cyan)
+
+                            if manager.routeSteps.indices.contains(manager.currentStepIndex + 1) {
+                                Text("•")
+                                    .foregroundStyle(.white.opacity(0.3))
+                                Image(systemName: manager.routeSteps[manager.currentStepIndex + 1].maneuverIcon)
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
+                        }
+
+                        if manager.routeSteps.indices.contains(manager.currentStepIndex) {
+                            Text(manager.routeSteps[manager.currentStepIndex].instructions)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        } else {
+                            Text(manager.destinationMapItem?.name ?? (isKhmerLanguage ? "បន្តទៅមុខ" : "Proceed to destination"))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
+                Spacer(minLength: 4)
+
+                // Quick Action Buttons (Fit Route Overview, Steps & Cancel)
+                HStack(spacing: 6) {
+                    // Frame Route Overview button
+                    Button {
+                        manager.routeOverviewFitTrigger += 1
+                        triggerToast(isKhmerLanguage ? "ទិដ្ឋភាពទូទៅនៃផ្លូវ" : "Route Overview")
+                    } label: {
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.12), in: Circle())
+                    }
+
+                    // Steps List sheet button
+                    Button {
+                        showDirectionsSheet = true
+                    } label: {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.12), in: Circle())
+                    }
+
+                    // Cancel Route
+                    Button {
+                        withAnimation {
+                            manager.clearActiveRoute()
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .frame(width: 32, height: 32)
+                            .background(Color.red.opacity(0.2), in: Circle())
+                    }
+                }
+            }
+
+            // Journey Progress Bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+                        .frame(height: 4)
+
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [.cyan, .green],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(4, geo.size.width * CGFloat(manager.routeProgressPercentage)), height: 4)
+                }
+            }
+            .frame(height: 4)
+
+            // ETA, Remaining Distance & Clock Arrival Time Row
+            HStack(spacing: 12) {
+                HStack(spacing: 4) {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.green)
+                    Text(manager.formattedDurationRemaining(isKhmer: isKhmerLanguage))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(.green)
                 }
-            }
 
-            Spacer()
-
-            // View Steps
-            Button {
-                showDirectionsSheet = true
-            } label: {
-                Text(isKhmerLanguage ? "ជំហាន" : "Steps")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.cyan.opacity(0.3), in: Capsule())
-                    .overlay(Capsule().stroke(Color.cyan.opacity(0.6), lineWidth: 1))
-            }
-
-            // Cancel Route
-            Button {
-                withAnimation {
-                    manager.clearActiveRoute()
+                HStack(spacing: 4) {
+                    Image(systemName: "flag.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.cyan)
+                    Text(manager.unit.formatDistance(meters: manager.distanceToDestination, isKhmer: isKhmerLanguage))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.cyan)
                 }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .frame(width: 28, height: 28)
-                    .background(Color.white.opacity(0.12), in: Circle())
+
+                HStack(spacing: 4) {
+                    Image(systemName: "bell.badge.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.6))
+                    Text(manager.formattedETAClock())
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+
+                Spacer()
+
+                // Transport Mode Quick Toggles (Car / Walk / Transit)
+                HStack(spacing: 4) {
+                    ForEach(TransportMode.allCases) { mode in
+                        Button {
+                            if manager.transportMode != mode, let dest = manager.destinationMapItem {
+                                withAnimation {
+                                    manager.calculateRoute(to: dest, mode: mode, autoFrameOverview: false)
+                                }
+                                triggerToast(isKhmerLanguage ? "ផ្លាស់ប្តូរទៅ \(mode.localizedName(isKhmer: true))" : "Switched to \(mode.rawValue)")
+                            }
+                        } label: {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(manager.transportMode == mode ? Color.black : Color.white.opacity(0.7))
+                                .frame(width: 22, height: 22)
+                                .background(manager.transportMode == mode ? Color.cyan : Color.white.opacity(0.08), in: Circle())
+                        }
+                    }
+                }
+            }
+
+            // Alternate Routes Selector (if available)
+            if manager.alternateRoutes.count > 1 {
+                HStack(spacing: 8) {
+                    Text(isKhmerLanguage ? "ជម្រើសផ្លូវ:" : "Routes:")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.5))
+
+                    ForEach(Array(manager.alternateRoutes.enumerated()), id: \.offset) { idx, altRoute in
+                        let isSelected = manager.selectedRouteIndex == idx
+                        Button {
+                            withAnimation {
+                                manager.selectRoute(at: idx)
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("#\(idx + 1)")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                let mins = Int(altRoute.expectedTravelTime / 60)
+                                Text("\(mins)m")
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(isSelected ? Color.cyan.opacity(0.3) : Color.white.opacity(0.06), in: Capsule())
+                            .overlay(Capsule().stroke(isSelected ? Color.cyan : Color.white.opacity(0.15), lineWidth: 1))
+                            .foregroundStyle(isSelected ? Color.cyan : Color.white.opacity(0.7))
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding(.top, 2)
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color(red: 0.08, green: 0.09, blue: 0.14).opacity(0.92), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.vertical, 12)
+        .background(Color(red: 0.08, green: 0.09, blue: 0.14).opacity(0.94), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.green.opacity(0.4), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: manager.hasArrivedAtDestination
+                            ? [Color.green.opacity(0.6), Color.mint.opacity(0.3)]
+                            : manager.isOffRoute
+                            ? [Color.orange.opacity(0.6), Color.red.opacity(0.3)]
+                            : [Color.cyan.opacity(0.5), Color.white.opacity(0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.2
+                )
         )
-        .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.35), radius: 12, x: 0, y: 5)
     }
 
     // MARK: - Speedometer & Telemetry Glass Platter
@@ -630,28 +816,108 @@ public struct TrackMapView: View {
                     }
                 } else {
                     List {
-                        ForEach(Array(manager.routeSteps.enumerated()), id: \.element.id) { index, step in
-                            HStack(alignment: .top, spacing: 14) {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.cyan.opacity(0.2))
-                                        .frame(width: 28, height: 28)
-                                    Text("\(index + 1)")
-                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(.cyan)
+                        // Header summary card
+                        Section {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(manager.destinationMapItem?.name ?? (isKhmerLanguage ? "ទិសដៅ" : "Destination"))
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    HStack(spacing: 4) {
+                                        Image(systemName: manager.transportMode.icon)
+                                        Text(manager.transportMode.localizedName(isKhmer: isKhmerLanguage))
+                                    }
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(.cyan)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.cyan.opacity(0.15), in: Capsule())
                                 }
 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(step.instructions)
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(.white)
+                                HStack(spacing: 12) {
+                                    Text(manager.unit.formatDistance(meters: manager.distanceToDestination, isKhmer: isKhmerLanguage))
+                                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(.cyan)
 
-                                    Text(manager.unit.formatDistance(meters: step.distanceMeters, isKhmer: isKhmerLanguage))
-                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                        .foregroundStyle(.white.opacity(0.6))
+                                    Text("•")
+                                        .foregroundStyle(.white.opacity(0.3))
+
+                                    Text(manager.formattedDurationRemaining(isKhmer: isKhmerLanguage))
+                                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(.green)
+
+                                    Text("•")
+                                        .foregroundStyle(.white.opacity(0.3))
+
+                                    Text("ETA \(manager.formattedETAClock())")
+                                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.8))
                                 }
                             }
-                            .listRowBackground(Color.white.opacity(0.04))
+                            .padding(.vertical, 4)
+                            .listRowBackground(Color.white.opacity(0.06))
+                        }
+
+                        // Steps list
+                        Section(header: Text(isKhmerLanguage ? "ជំហានតាមដងផ្លូវ" : "Route Steps").font(.system(size: 11, weight: .bold)).foregroundStyle(.white.opacity(0.6))) {
+                            ForEach(Array(manager.routeSteps.enumerated()), id: \.element.id) { index, step in
+                                let isCurrent = index == manager.currentStepIndex
+                                let isCompleted = index < manager.currentStepIndex
+
+                                HStack(alignment: .top, spacing: 14) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(
+                                                isCurrent
+                                                    ? Color.cyan.opacity(0.35)
+                                                    : isCompleted
+                                                    ? Color.white.opacity(0.05)
+                                                    : Color.cyan.opacity(0.12)
+                                            )
+                                            .frame(width: 36, height: 36)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(isCurrent ? Color.cyan : Color.white.opacity(0.1), lineWidth: 1.2)
+                                            )
+
+                                        Image(systemName: step.maneuverIcon)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(isCurrent ? Color.cyan : (isCompleted ? Color.white.opacity(0.35) : Color.white))
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 6) {
+                                            Text(step.instructions)
+                                                .font(.system(size: 14, weight: isCurrent ? .bold : .medium))
+                                                .foregroundStyle(isCompleted ? Color.white.opacity(0.4) : Color.white)
+
+                                            if isCurrent {
+                                                Text(isKhmerLanguage ? "បច្ចុប្បន្ន" : "ACTIVE")
+                                                    .font(.system(size: 9, weight: .black, design: .monospaced))
+                                                    .foregroundStyle(.black)
+                                                    .padding(.horizontal, 6)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.cyan, in: Capsule())
+                                            }
+                                        }
+
+                                        HStack(spacing: 8) {
+                                            Text(manager.unit.formatDistance(meters: step.distanceMeters, isKhmer: isKhmerLanguage))
+                                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                                .foregroundStyle(isCurrent ? Color.cyan : Color.white.opacity(0.55))
+
+                                            if let notice = step.notice {
+                                                Text("• \(notice)")
+                                                    .font(.system(size: 10))
+                                                    .foregroundStyle(Color.orange.opacity(0.85))
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                                .listRowBackground(isCurrent ? Color.cyan.opacity(0.08) : Color.white.opacity(0.03))
+                            }
                         }
                     }
                     .scrollContentBackground(.hidden)
@@ -937,6 +1203,14 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         // Overlays (Routes & Breadcrumbs)
         context.coordinator.updateOverlays(mapView: mapView)
 
+        // Handle Route Overview Framing Trigger
+        if context.coordinator.lastRouteFitTrigger != manager.routeOverviewFitTrigger {
+            context.coordinator.lastRouteFitTrigger = manager.routeOverviewFitTrigger
+            if let route = manager.activeRoute {
+                context.coordinator.frameRouteOverview(route: route)
+            }
+        }
+
         // Handle Re-center & Heading Lock Trigger from UI
         if context.coordinator.lastCenterTrigger != mapCenterTrigger {
             context.coordinator.lastCenterTrigger = mapCenterTrigger
@@ -958,8 +1232,18 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         var hasInitializedCamera: Bool = false
 
         var lastCenterTrigger: Int = 0
+        var lastRouteFitTrigger: Int = 0
         var lastBreadcrumbCount: Int = 0
         var isUserDragging: Bool = false
+
+        public func frameRouteOverview(route: MKRoute) {
+            guard let mapView = mapView else { return }
+            DispatchQueue.main.async {
+                self.parent.isHeadingLocked = false
+            }
+            let edgePadding = UIEdgeInsets(top: 140, left: 35, bottom: 250, right: 35)
+            mapView.setVisibleMapRect(route.polyline.boundingMapRect, edgePadding: edgePadding, animated: true)
+        }
 
         init(_ parent: TrackMapViewRepresentable) {
             self.parent = parent

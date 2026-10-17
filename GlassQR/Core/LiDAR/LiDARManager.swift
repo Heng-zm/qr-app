@@ -3,9 +3,8 @@
 //  GlassQR
 //
 //  Apple LiDAR Scanner (Time-of-Flight Depth Sensor) Telemetry & AR Engine.
-//  Provides millimeter-precision distance ranging, surface plane tilt estimation,
-//  0% light night vision depth heatmap, physical target size calculation,
-//  and 3D holographic AR anchor tracking.
+//  Provides distance ranging, surface plane tilt estimation, depth heatmap
+//  palettes, physical target size calculation, and AR anchor tracking.
 //
 
 import Foundation
@@ -45,11 +44,20 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
     @Published public var isTargetLocked: Bool = false
 
     // MARK: - Internal ARKit Engine
+    // ARSession delegate callbacks are delivered on the main queue (default),
+    // so all state below is only touched from the main thread.
     public private(set) var arSession = ARSession()
     private var isSessionRunning = false
     private var smoothedDistance: Double = 1.25
+    private var hasFirstSample = false
     private var simulationTimer: Timer?
     private var simulationAngle: Double = 0.0
+    private var lastProcessedTimestamp: TimeInterval = 0
+    private let updateInterval: TimeInterval = 1.0 / 20.0 // throttle UI updates to 20 Hz
+
+    // Valid depth range (meters)
+    private let minValidDepth: Float = 0.08
+    private let maxValidDepth: Float = 12.0
 
     public enum DepthColorPalette: String, CaseIterable, Identifiable {
         case cyberpunk = "Cyberpunk"
@@ -73,36 +81,47 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
         arSession.delegate = self
     }
 
+    deinit {
+        simulationTimer?.invalidate()
+        arSession.pause()
+    }
+
     // MARK: - Start / Stop Telemetry & AR Session
 
+    private func makeConfiguration() -> ARWorldTrackingConfiguration {
+        let config = ARWorldTrackingConfiguration()
+        config.planeDetection = [.horizontal, .vertical]
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+            config.sceneReconstruction = .mesh
+        }
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+            config.frameSemantics.insert(.sceneDepth)
+        }
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.smoothedSceneDepth) {
+            config.frameSemantics.insert(.smoothedSceneDepth)
+        }
+        config.isLightEstimationEnabled = true
+        return config
+    }
+
     public func startSession() {
-        guard !isSessionRunning else { return }
+        // Guard on the ranging flag so repeated calls don't restart simulation either.
+        guard !isLiDARRangingActive else { return }
         isLiDARRangingActive = true
+        hasFirstSample = false
+        lastProcessedTimestamp = 0
 
         #if !targetEnvironment(simulator)
         if ARWorldTrackingConfiguration.isSupported {
-            let config = ARWorldTrackingConfiguration()
-            config.planeDetection = [.horizontal, .vertical]
-            
-            if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-                config.sceneReconstruction = .mesh
-            }
-            if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
-                config.frameSemantics.insert(.sceneDepth)
-            }
-            if ARWorldTrackingConfiguration.supportsFrameSemantics(.smoothedSceneDepth) {
-                config.frameSemantics.insert(.smoothedSceneDepth)
-            }
-            config.isLightEstimationEnabled = true
-
-            arSession.run(config, options: [.resetTracking, .removeExistingAnchors])
+            arSession.run(makeConfiguration(), options: [.resetTracking, .removeExistingAnchors])
             isSessionRunning = true
             isHardwareLiDAR = Self.isLiDARHardwareAvailable
             return
         }
         #endif
 
-        // Graceful fallback to High-Fidelity Physics Simulator
+        // Graceful fallback to the physics simulator
+        isHardwareLiDAR = false
         startSimulationMode()
     }
 
@@ -124,92 +143,176 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
     public func cycleDepthPalette() {
         let all = DepthColorPalette.allCases
         if let idx = all.firstIndex(of: depthHeatmapMode) {
-            let nextIdx = (idx + 1) % all.count
-            depthHeatmapMode = all[nextIdx]
+            depthHeatmapMode = all[(idx + 1) % all.count]
         }
     }
 
-    // MARK: - ARSessionDelegate Depth Extraction
+    // MARK: - ARSessionDelegate
 
     public func session(_ session: ARSession, didUpdate frame: ARFrame) {
         guard isLiDARRangingActive else { return }
 
-        // 1. Extract Center Depth from LiDAR Time-of-Flight Sensor
-        let depthBuffer = frame.smoothedSceneDepth?.depthMap ?? frame.sceneDepth?.depthMap
+        // Throttle: ARKit delivers ~60 fps; publishing a dozen properties
+        // that often needlessly re-renders SwiftUI.
+        guard frame.timestamp - lastProcessedTimestamp >= updateInterval else { return }
+        lastProcessedTimestamp = frame.timestamp
+
+        let cameraTransform = frame.camera.transform
+        let camPos = SIMD3<Float>(cameraTransform.columns.3.x, cameraTransform.columns.3.y, cameraTransform.columns.3.z)
+        let camForward = -SIMD3<Float>(cameraTransform.columns.2.x, cameraTransform.columns.2.y, cameraTransform.columns.2.z)
+
         var extractedDistance: Double? = nil
+        var depthConfidence: Double? = nil
+        var validPointCount: Int? = nil
 
-        if let buffer = depthBuffer {
-            if let depthFloat = readCenterDepth(from: buffer) {
-                extractedDistance = Double(depthFloat)
+        // 1. LiDAR depth map (center sample + confidence + valid pixel count)
+        if let depthData = frame.smoothedSceneDepth ?? frame.sceneDepth {
+            if let d = readCenterDepth(from: depthData.depthMap) {
+                extractedDistance = Double(d)
             }
+            if let confMap = depthData.confidenceMap {
+                depthConfidence = readCenterConfidence(from: confMap)
+            }
+            validPointCount = countValidDepthPixels(in: depthData.depthMap)
         }
 
-        // 2. Fallback to Raycast if depthMap unavailable
-        if extractedDistance == nil {
-            let centerPoint = CGPoint(x: 0.5, y: 0.5)
-            let query = frame.raycastQuery(from: centerPoint, allowing: .estimatedPlane, alignment: .any)
-            let raycastResults = session.raycast(query)
-            if let first = raycastResults.first {
-                let cameraTransform = frame.camera.transform
-                let camPos = SIMD3<Float>(cameraTransform.columns.3.x, cameraTransform.columns.3.y, cameraTransform.columns.3.z)
-                let targetPos = SIMD3<Float>(first.worldTransform.columns.3.x, first.worldTransform.columns.3.y, first.worldTransform.columns.3.z)
+        // 2. Raycast: used for surface tilt (always) and as distance fallback
+        let query = frame.raycastQuery(from: CGPoint(x: 0.5, y: 0.5),
+                                       allowing: .estimatedPlane,
+                                       alignment: .any)
+        var tilt: Double? = nil
+        if let hit = session.raycast(query).first {
+            let t = hit.worldTransform.columns
+            let targetPos = SIMD3<Float>(t.3.x, t.3.y, t.3.z)
+            if extractedDistance == nil {
                 extractedDistance = Double(simd_distance(camPos, targetPos))
-
-                // Estimate surface tilt from plane normal
-                let normal = SIMD3<Float>(first.worldTransform.columns.1.x, first.worldTransform.columns.1.y, first.worldTransform.columns.1.z)
-                let camForward = -SIMD3<Float>(cameraTransform.columns.2.x, cameraTransform.columns.2.y, cameraTransform.columns.2.z)
-                let dotProd = abs(simd_dot(normal, camForward))
-                let clampedDot = min(Float(1.0), max(Float(0.0), dotProd))
-                let angleRad = acos(clampedDot)
-                surfaceTiltDegrees = Double(angleRad * 180.0 / Float.pi)
             }
+            // Plane normal is the Y axis of the hit transform
+            let normal = simd_normalize(SIMD3<Float>(t.1.x, t.1.y, t.1.z))
+            let dot = min(Float(1.0), max(Float(0.0), abs(simd_dot(normal, camForward))))
+            tilt = Double(acos(dot) * 180.0 / Float.pi)
         }
 
-        // 3. Process Extracted Distance with Adaptive Low-Pass Filter
-        if let validDist = extractedDistance, validDist > 0.08 && validDist < 12.0 {
-            DispatchQueue.main.async {
-                self.rawDistanceMeters = validDist
-                // Smooth jitter with EMA filter
-                self.smoothedDistance += (validDist - self.smoothedDistance) * 0.22
-                self.measuredDistanceMeters = self.smoothedDistance
+        guard let validDist = extractedDistance,
+              validDist > Double(minValidDepth), validDist < Double(maxValidDepth) else { return }
 
-                // High confidence when distance is stable
-                let stability = max(80.0, min(99.9, 100.0 - abs(validDist - self.smoothedDistance) * 40.0))
-                self.laserConfidencePercent = stability
-                self.isTargetLocked = self.measuredDistanceMeters > 0.2 && self.measuredDistanceMeters < 3.5
+        // 3. Smoothing (EMA). Seed with the first sample to avoid a startup glide.
+        if !hasFirstSample {
+            smoothedDistance = validDist
+            hasFirstSample = true
+        }
+        let jitter = abs(validDist - smoothedDistance) // measured BEFORE updating the filter
+        smoothedDistance += (validDist - smoothedDistance) * 0.22
 
-                // Calculate real physical size: width = 2 * dist * tan(FOV/2)
-                let fovRadians = 60.0 * .pi / 180.0
-                let viewWidthMeters = 2.0 * self.measuredDistanceMeters * tan(fovRadians / 2.0)
-                let qrRatioOnScreen = 0.32 // Approx reticle proportion
-                let physicalCm = (viewWidthMeters * qrRatioOnScreen) * 100.0
-                self.estimatedPhysicalWidthCm = max(3.0, min(100.0, physicalCm))
-                self.estimatedPhysicalHeightCm = self.estimatedPhysicalWidthCm
+        rawDistanceMeters = validDist
+        measuredDistanceMeters = smoothedDistance
+        if let tilt = tilt { surfaceTiltDegrees = tilt }
 
-                // Point cloud count
-                if let rawPoints = frame.rawFeaturePoints?.points {
-                    self.pointCloudDensity = rawPoints.count * 12 + 8500
-                }
-            }
+        // Confidence: LiDAR confidence level (0 low, 1 medium, 2 high) minus jitter penalty
+        let base: Double
+        switch depthConfidence {
+        case .some(let c) where c >= 2: base = 99.0
+        case .some(let c) where c >= 1: base = 85.0
+        case .some:                     base = 65.0
+        case .none:                     base = 90.0
+        }
+        laserConfidencePercent = max(40.0, min(99.9, base - jitter * 40.0))
+        isTargetLocked = smoothedDistance > 0.2 && smoothedDistance < 3.5
+
+        // 4. Physical size from the real camera intrinsics (not a hard-coded FOV).
+        // Use the shorter image side (screen width in portrait).
+        let f = Double(frame.camera.intrinsics[0][0])
+        let res = frame.camera.imageResolution
+        let shortSide = Double(min(res.width, res.height))
+        let fov = f > 0 ? 2.0 * atan(shortSide / (2.0 * f)) : 60.0 * .pi / 180.0
+        let viewWidthMeters = 2.0 * smoothedDistance * tan(fov / 2.0)
+        let qrRatioOnScreen = 0.32 // approx reticle proportion
+        let physicalCm = max(3.0, min(100.0, viewWidthMeters * qrRatioOnScreen * 100.0))
+        estimatedPhysicalWidthCm = physicalCm
+        estimatedPhysicalHeightCm = physicalCm
+
+        // 5. Point count: real number of valid depth pixels (falls back to feature points)
+        if let count = validPointCount {
+            pointCloudDensity = count
+        } else if let pts = frame.rawFeaturePoints?.points {
+            pointCloudDensity = pts.count
         }
     }
 
+    public func session(_ session: ARSession, didFailWithError error: Error) {
+        // Fall back to simulation so the UI keeps working.
+        isSessionRunning = false
+        if isLiDARRangingActive {
+            isHardwareLiDAR = false
+            startSimulationMode()
+        }
+    }
+
+    public func sessionWasInterrupted(_ session: ARSession) {
+        hasFirstSample = false
+    }
+
+    public func sessionInterruptionEnded(_ session: ARSession) {
+        guard isLiDARRangingActive, isSessionRunning else { return }
+        hasFirstSample = false
+        session.run(makeConfiguration(), options: [.resetTracking, .removeExistingAnchors])
+    }
+
+    // MARK: - Pixel Buffer Readers
+
+    /// Reads the center depth in meters, respecting bytesPerRow (rows can be padded).
     private func readCenterDepth(from pixelBuffer: CVPixelBuffer) -> Float? {
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
 
         let width = CVPixelBufferGetWidth(pixelBuffer)
         let height = CVPixelBufferGetHeight(pixelBuffer)
-        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else { return nil }
+        guard width > 0, height > 0,
+              CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_DepthFloat32,
+              let base = CVPixelBufferGetBaseAddress(pixelBuffer) else { return nil }
 
-        let floatBuffer = baseAddress.assumingMemoryBound(to: Float32.self)
-        let centerX = width / 2
-        let centerY = height / 2
-        let index = centerY * width + centerX
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let row = base.advanced(by: (height / 2) * bytesPerRow).assumingMemoryBound(to: Float32.self)
+        let depth = row[width / 2]
+        return (depth.isNaN || depth <= minValidDepth || depth > 15.0) ? nil : depth
+    }
 
-        guard index >= 0 && index < (width * height) else { return nil }
-        let depth = floatBuffer[index]
-        return depth.isNaN || depth <= 0.08 || depth > 15.0 ? nil : depth
+    /// Reads the ARConfidenceLevel (UInt8: 0 low, 1 medium, 2 high) at the center.
+    private func readCenterConfidence(from pixelBuffer: CVPixelBuffer) -> Double? {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        guard width > 0, height > 0,
+              let base = CVPixelBufferGetBaseAddress(pixelBuffer) else { return nil }
+
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let row = base.advanced(by: (height / 2) * bytesPerRow).assumingMemoryBound(to: UInt8.self)
+        return Double(row[width / 2])
+    }
+
+    /// Counts valid depth pixels (sampled every 2nd pixel, scaled back up).
+    private func countValidDepthPixels(in pixelBuffer: CVPixelBuffer) -> Int? {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        guard width > 0, height > 0,
+              CVPixelBufferGetPixelFormatType(pixelBuffer) == kCVPixelFormatType_DepthFloat32,
+              let base = CVPixelBufferGetBaseAddress(pixelBuffer) else { return nil }
+
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        var count = 0
+        for y in stride(from: 0, to: height, by: 2) {
+            let row = base.advanced(by: y * bytesPerRow).assumingMemoryBound(to: Float32.self)
+            for x in stride(from: 0, to: width, by: 2) {
+                let d = row[x]
+                if !d.isNaN && d > minValidDepth && d < maxValidDepth { count += 1 }
+            }
+        }
+        return count * 4
     }
 
     // MARK: - Holographic AR QR Code Anchor
@@ -220,12 +323,11 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
 
         #if !targetEnvironment(simulator)
         if let currentFrame = arSession.currentFrame {
-            let cameraTransform = currentFrame.camera.transform
-            let forward = -SIMD3<Float>(cameraTransform.columns.2.x, cameraTransform.columns.2.y, cameraTransform.columns.2.z)
-            let camPos = SIMD3<Float>(cameraTransform.columns.3.x, cameraTransform.columns.3.y, cameraTransform.columns.3.z)
+            let t = currentFrame.camera.transform
+            let forward = -SIMD3<Float>(t.columns.2.x, t.columns.2.y, t.columns.2.z)
+            let camPos = SIMD3<Float>(t.columns.3.x, t.columns.3.y, t.columns.3.z)
             let dist = Float(max(0.4, min(2.0, measuredDistanceMeters)))
-            let targetPos = camPos + forward * dist
-            arHologramPosition = targetPos
+            arHologramPosition = camPos + forward * dist
             return
         }
         #endif
@@ -244,11 +346,11 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
 
     private func startSimulationMode() {
         simulationTimer?.invalidate()
-        simulationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self = self, self.isLiDARRangingActive else { return }
 
             self.simulationAngle += 0.04
-            // Natural human hand tremor and slight distance variations (1.15m to 1.45m)
+            // Natural hand tremor and slight distance variation (~1.1m to 1.5m)
             let simDist = 1.28 + sin(self.simulationAngle * 0.7) * 0.16 + cos(self.simulationAngle * 1.5) * 0.03
             self.rawDistanceMeters = simDist
             self.smoothedDistance += (simDist - self.smoothedDistance) * 0.18
@@ -263,6 +365,9 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
             self.estimatedPhysicalHeightCm = physicalCm
             self.pointCloudDensity = 17800 + Int(sin(self.simulationAngle * 3.0) * 1200)
         }
+        // .common keeps the timer firing while the user scrolls / interacts
+        RunLoop.main.add(timer, forMode: .common)
+        simulationTimer = timer
     }
 
     private func stopSimulationMode() {
@@ -275,8 +380,7 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
     public func formattedDistance(isKhmer: Bool = false) -> String {
         let meters = measuredDistanceMeters
         if meters < 1.0 {
-            let cm = meters * 100.0
-            return String(format: "%.1f %@", cm, isKhmer ? "ស.ម" : "cm")
+            return String(format: "%.1f %@", meters * 100.0, isKhmer ? "ស.ម" : "cm")
         } else {
             return String(format: "%.2f %@", meters, isKhmer ? "ម៉ែត្រ" : "m")
         }
@@ -286,9 +390,9 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
         if measuredDistanceMeters < 0.25 {
             return .orange // Too close
         } else if measuredDistanceMeters <= 2.2 {
-            return .green // Optimal Time-of-Flight sweet spot
+            return .green  // Optimal Time-of-Flight sweet spot
         } else if measuredDistanceMeters <= 5.0 {
-            return .cyan // Mid-range
+            return .cyan   // Mid-range
         } else {
             return .purple // Long-range
         }

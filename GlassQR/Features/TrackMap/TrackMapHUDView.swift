@@ -101,6 +101,44 @@ public struct TrackMapHUDView: View {
                             .foregroundStyle(.white.opacity(0.6))
                     }
 
+                    // Active Navigation Guidance Strip (HUD Mode)
+                    if manager.activeRoute != nil {
+                        HStack(spacing: 12) {
+                            Image(systemName: manager.currentManeuverIcon)
+                                .font(.system(size: 20, weight: .black))
+                                .foregroundStyle(hudColor)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 8) {
+                                    Text(manager.unit.formatDistance(meters: manager.distanceToNextStep))
+                                        .font(.system(size: 16, weight: .black, design: .monospaced))
+                                        .foregroundStyle(hudColor)
+
+                                    if manager.routeSteps.indices.contains(manager.currentStepIndex) {
+                                        Text(manager.routeSteps[manager.currentStepIndex].instructions)
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .lineLimit(1)
+                                    }
+                                }
+
+                                HStack(spacing: 10) {
+                                    Text("DEST: \(manager.unit.formatDistance(meters: manager.distanceToDestination))")
+                                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.6))
+                                    Text("ETA: \(manager.formattedETAClock()) (\(manager.formattedDurationRemaining()))")
+                                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(.green.opacity(0.85))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(hudColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(hudColor.opacity(0.35), lineWidth: 1))
+                        .padding(.horizontal, 24)
+                    }
+
                     // Massive High-Precision Speedometer Readout
                     HStack(alignment: .lastTextBaseline, spacing: 6) {
                         Text(String(format: "%.0f", manager.currentSpeed))
