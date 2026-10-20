@@ -614,13 +614,18 @@ public struct LiDARARViewRepresentable: UIViewRepresentable {
             // Copy BOTH buffers: ARKit reuses its Metal buffers between frames, so
             // SceneKit must own a snapshot of the vertices as well as the indices,
             // otherwise the mesh can garble when a buffer is refilled before upload.
-            let vertexData = Data(bytes: v.buffer.contents().advanced(by: v.offset),
-                                  count: v.count * v.stride)
-            let vertexSource = SCNGeometrySource(data: vertexData,
+            // (A fresh MTLBuffer keeps the buffer-based SCNGeometrySource API, which
+            // accepts ARKit's MTLVertexFormat directly.)
+            let copiedVertices = v.buffer.device.makeBuffer(
+                bytes: v.buffer.contents().advanced(by: v.offset),
+                length: v.count * v.stride,
+                options: .storageModeShared
+            )
+            let vertexSource = SCNGeometrySource(buffer: copiedVertices ?? v.buffer,
                                                  vertexFormat: v.format,
                                                  semantic: .vertex,
                                                  vertexCount: v.count,
-                                                 dataOffset: 0,
+                                                 dataOffset: copiedVertices == nil ? v.offset : 0,
                                                  dataStride: v.stride)
             let f = mesh.faces
             let indexData = Data(bytes: f.buffer.contents(),
