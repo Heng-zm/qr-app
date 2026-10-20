@@ -255,7 +255,7 @@ public struct TrackMapView: View {
     private var searchResultsDropdown: some View {
         let shownResults = Array(searchResults.prefix(4))
 
-        VStack(spacing: 0) {
+        return VStack(spacing: 0) {
             if isSearching && searchResults.isEmpty {
                 HStack(spacing: 10) {
                     ProgressView()
@@ -1359,6 +1359,15 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         var camPitch: CGFloat = 52.0
         var hasInitializedCamera: Bool = false
 
+        // Last values actually written to the map camera, used to skip
+        // redundant camera writes once the lerp has converged.
+        var hasWrittenCamera: Bool = false
+        var lastWriteLat: Double = 0.0
+        var lastWriteLon: Double = 0.0
+        var lastWriteHeading: Double = 0.0
+        var lastWriteAltitude: Double = 0.0
+        var lastWritePitch: CGFloat = 0.0
+
         var lastCenterTrigger: Int = 0
         var lastRouteFitTrigger: Int = 0
         var lastBreadcrumbCount: Int = 0
@@ -1414,6 +1423,7 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
             camAltitude = mapView.camera.centerCoordinateDistance > 50 ? mapView.camera.centerCoordinateDistance : 380.0
             camPitch = mapView.camera.pitch
             hasInitializedCamera = true
+            hasWrittenCamera = false
         }
 
         @objc func onDisplayLinkTick() {
@@ -1429,6 +1439,18 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
                 camAltitude = 380.0
                 camPitch = 52.0
                 hasInitializedCamera = true
+            }
+
+            // Fail-safe: if any lerp state turned NaN/∞ (e.g. from a corrupted
+            // location or heading sample), reseed from trusted values instead
+            // of handing NaN to MKMapCamera.
+            if !camLat.isFinite || !camLon.isFinite || !camHeading.isFinite
+                || !camAltitude.isFinite || !camPitch.isFinite {
+                camLat = targetCoord.latitude
+                camLon = targetCoord.longitude
+                camHeading = parent.manager.headingDegrees
+                camAltitude = 380.0
+                camPitch = parent.is3DPitchActive ? 52.0 : 0.0
             }
 
             // 1. Position Lerp (Factor 0.12 provides smooth follow without lag)
@@ -1458,6 +1480,17 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
             camPitch += (targetPitch - camPitch) * 0.08
 
             // 5. Update MapKit Camera Directly at 60fps/120fps (Zero tracking mode jitter)
+            // Skip redundant writes once the lerp has converged: a parked car
+            // would otherwise re-drive the MapKit 3D camera engine 60–120
+            // times per second with no visual change.
+            let hasVisibleChange =
+                abs(currentCenter.latitude - lastWriteLat) > 1.5e-6
+                || abs(currentCenter.longitude - lastWriteLon) > 1.5e-6
+                || abs(camHeading - lastWriteHeading) > 0.1
+                || abs(camAltitude - lastWriteAltitude) > 1.5
+                || abs(Double(camPitch) - Double(lastWritePitch)) > 0.25
+            if hasWrittenCamera && !hasVisibleChange { return }
+
             let camera = MKMapCamera(
                 lookingAtCenter: currentCenter,
                 fromDistance: camAltitude,
@@ -1465,6 +1498,12 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
                 heading: camHeading
             )
             mapView.camera = camera
+            hasWrittenCamera = true
+            lastWriteLat = camLat
+            lastWriteLon = camLon
+            lastWriteHeading = camHeading
+            lastWriteAltitude = camAltitude
+            lastWritePitch = camPitch
         }
 
         // Gesture handling for seamless manual map pan/pinch/zoom
