@@ -102,7 +102,7 @@ public enum AIProvider: String, CaseIterable, Identifiable, Codable {
 
 // MARK: - One-Tap Quick Actions
 
-public enum AIQuickAction: Equatable {
+public enum AIQuickAction: Equatable, Codable {
     case writeNFC(payload: String)
     case openAppleMaps(lat: Double, lon: Double, label: String)
     case unlockVault(ciphertext: String)
@@ -138,7 +138,7 @@ public enum AIQuickAction: Equatable {
 
 // MARK: - Core AI Message Models
 
-public struct AIAgentMessage: Identifiable, Equatable {
+public struct AIAgentMessage: Identifiable, Equatable, Codable {
     public let id: UUID
     public let isUser: Bool
     public var text: String
@@ -172,7 +172,7 @@ public struct AIAgentMessage: Identifiable, Equatable {
     }
 }
 
-public struct AISuggestedQR: Equatable {
+public struct AISuggestedQR: Equatable, Codable {
     public let title: String
     public let payload: String
     public let formatLabel: String
@@ -194,8 +194,8 @@ public struct AISuggestedQR: Equatable {
     }
 }
 
-public struct AISecurityBadge: Equatable {
-    public enum Level: String, Equatable {
+public struct AISecurityBadge: Equatable, Codable {
+    public enum Level: String, Equatable, Codable {
         case safe = "Safe & Verified"
         case caution = "Caution Recommended"
         case danger = "Potential Threat"

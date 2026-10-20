@@ -48,6 +48,10 @@ public struct CoreMLHardwareStatus: Sendable, Equatable {
 // MARK: - Semantic Intent Classes
 
 public enum SLMIntentClass: String, CaseIterable, Sendable {
+    // Declared first so its highly specific file-format keywords ("gpx",
+    // "strava") win the first-match keyword pass before looser ones like
+    // the mapLocation "ពីផ្លូវ" family.
+    case tripTrail = "GPX Trip Trail Export & Recording"
     case encryptedVault = "Zero-Knowledge Encrypted Vault"
     case walletPass = "Apple Wallet Pass (.pkpass)"
     case mapLocation = "Apple Maps Geolocation"
@@ -63,7 +67,8 @@ public enum SLMIntentClass: String, CaseIterable, Sendable {
 
     public var benchmarkKeywords: [String] {
         switch self {
-        case .encryptedVault:
+        case .tripTrail:
+            return ["gpx", "gpx file", "export gpx", "export trip", "export track", "trail export", "strava", "garmin", "relive", "breadcrumb file", "save my track", "trip file", "route file", "share my route", "នាំចេញផ្លូវ", "នាំចេញ gpx", "ឯកសារកំណត់ត្រាផ្លូវ"]
             return ["encrypt", "vault", "steganography", "passcode", "secret note", "confidential", "cipher", "hidden text", "អ៊ិនគ្រីប", "សម្ងាត់", "កូដសម្ងាត់", "ពាក្យសម្ងាត់", "លាក់", "សោសម្ងាត់", "សោ"]
         case .walletPass:
             return ["wallet", "pass", "ticket", "boarding", "loyalty", "membership", "coupon", "event pass", "pkpass", "កាត", "សំបុត្រ", "កាតសមាជិក", "កាតបញ្ចុះតម្លៃ", "ប័ណ្ណ", "apple wallet"]
@@ -189,6 +194,9 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
 
         case .trackMap:
             return buildTrackMapResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
+
+        case .tripTrail:
+            return buildGPXTrailResponse(prompt: prompt, latency: elapsedMs, isKhmer: isKhmer)
 
         case .generalChat:
             return buildGeneralChatResponse(prompt: prompt, persona: persona, latency: elapsedMs, isKhmer: isKhmer, history: history)
@@ -1185,6 +1193,61 @@ public final class CoreMLSLMEngine: @unchecked Sendable {
         let prompts = isKhmer
             ? ["🇰🇭 បើករបៀប HUD", "🇰🇭 ពិនិត្យល្បឿនបច្ចុប្បន្ន", "🇰🇭 បង្កើត Geo-QR ទីតាំង", "🇰🇭 កត់ត្រាផ្លូវបើកបរ"]
             : ["Open Windshield HUD", "Check Live Speed", "Create Location Geo-QR", "Start Trip Record"]
+
+        return AIAgentMessage(
+            isUser: false,
+            text: text,
+            suggestedQR: suggested,
+            securityBadge: badge,
+            quickPrompts: prompts,
+            suggestedAction: .openTrackMap
+        )
+    }
+
+    private func buildGPXTrailResponse(prompt: String, latency: Double, isKhmer: Bool) -> AIAgentMessage {
+        let text = isKhmer ? """
+        ### 🛣️ GlassQR GPX Trail Export (ភាសាខ្មែរ)
+        *វិភាគតាមរយៈ Apple Neural Engine រយៈពេល \(String(format: "%.1f", latency))ms • តំណើរការ 100% Offline*
+
+        **របៀបនាំចេញគន្លងផ្លូវជាឯកសារ GPX:**
+        - 🎯 **ជំហាន ១:** ចូលទៅផ្ទាំង **TrackMap** ហើយចុចប៊ូតុងកំណត់ត្រា ( ● ) ដើម្បីថតគន្លង GPS របស់អ្នក។
+        - 🎯 **ជំហាន ២:** ពេលទិសដៅបានចប់ ចុចប៊ូតុងពណ៌បៃតង **arrow.down.doc** នៅក្នុងជួរប៊ូតុងរហ័ស។
+        - 🎯 **ជំហាន ៣:** ជ្រើសរើសកន្លែងភ្ជាប់ (Share Sheet) ដើម្បីនាំចេញឯកសារ `GlassQR-Trip-<date>.gpx`។
+        - 📦 **ឯកសារ GPX 1.1 ស្តង់ដារ:** អាចនាំចូលទៅ **Strava, Google Earth, Garmin, ឬ Relive** បានដោយគ្មានបញ្ហា។
+        - 🔒 **ឯកជនភាព 100%:** ឯកសារត្រូវបង្កើតនៅលើឧបករណ៍របស់អ្នក — គ្មានការបញ្ជូនទៅ Server ឡើយ។
+
+        ចុចប៊ូតុង **"Launch TrackMap"** ខាងក្រោមដើម្បីចាប់ផ្តើមថតគន្លងឥឡូវនេះ!
+        """ : """
+        ### 🛣️ GlassQR GPX Trail Export
+        *Processed via Apple Neural Engine in \(String(format: "%.1f", latency))ms • 100% Offline*
+
+        **How to export your recorded trail as a GPX file:**
+        - 🎯 **Step 1:** Open the **TrackMap** tab and hit the ● record toggle to capture your GPS track.
+        - 🎯 **Step 2:** Once the trip is done, tap the green **arrow.down.doc** button in the quick action row.
+        - 🎯 **Step 3:** Choose a destination in the share sheet to export `GlassQR-Trip-<date>.gpx`.
+        - 📦 **GPX 1.1 standard:** imports cleanly into **Strava, Google Earth, Garmin, and Relive**.
+        - 🔒 **100% Private:** files are generated on-device — nothing ever uploads to a server.
+
+        Tap **"Launch TrackMap"** below to start recording your trail!
+        """
+
+        let suggested = AISuggestedQR(
+            title: isKhmer ? "បើក TrackMap" : "Launch TrackMap",
+            payload: "https://maps.apple.com/?ll=11.5564,104.9282&q=GPX+Trail+Export",
+            formatLabel: isKhmer ? "នាំចេញគន្លង GPS" : "GPS Trail Export",
+            iconName: "arrow.down.doc.fill",
+            action: .openTrackMap
+        )
+
+        let badge = AISecurityBadge(
+            level: .info,
+            title: isKhmer ? "ឯកសារ GPX 1.1" : "GPX 1.1 Standard",
+            details: isKhmer ? "ឯកសារត្រូវបង្កើតនៅលើឧបករណ៍ 100% • គ្មានការបញ្ជូន" : "On-device file generation • zero telemetry."
+        )
+
+        let prompts = isKhmer
+            ? ["🇰🇭 កត់ត្រាផ្លូវបើកបរ", "🇰🇭 បើក TrackMap", "🇰🇭 បង្កើត Geo-QR ទីតាំង", "🇰🇭 នាំចេញផ្លូវជា GPX"]
+            : ["Start Trip Recording", "Open Live TrackMap", "Create Location Geo-QR", "Explain GPX settings"]
 
         return AIAgentMessage(
             isUser: false,

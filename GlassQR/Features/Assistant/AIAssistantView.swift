@@ -41,6 +41,11 @@ public struct AIAssistantView: View {
     @FocusState private var isInputFocused: Bool
     @Environment(\.openURL) private var openURL
 
+    // Conversation persistence: transcripts survive app relaunches. Photo
+    // attachment blobs stay session-local (they'd bloat UserDefaults).
+    private static let chatStorageKey = "glass_ai_chat_history_v1"
+    private static let chatHistoryLimit = 60
+
     // QR Renderer instance for inline suggestions
     private let renderer = CrispQRRenderer()
 
@@ -86,6 +91,7 @@ public struct AIAssistantView: View {
                                 messages.removeAll()
                                 engine.stopSpeaking()
                             }
+                            persistConversation()
                             triggerToast("Conversation Cleared")
                         } label: {
                             Image(systemName: "trash")
@@ -889,12 +895,13 @@ public struct AIAssistantView: View {
             if let img = imageToAnalyze {
                 reply = await engine.analyzeImage(img, prompt: text.isEmpty ? nil : text)
             } else {
-                reply = await engine.processPrompt(text, history: messages)
+                reply = await engine.processPrompt(text, history: Array(messages.dropLast()))
             }
 
             await MainActor.run {
                 isThinking = false
                 messages.append(reply)
+                persistConversation()
             }
         }
     }
@@ -905,6 +912,28 @@ public struct AIAssistantView: View {
             messages.append(userPrompt)
             let analysis = engine.analyzeScannedItem(item)
             messages.append(analysis)
+            persistConversation()
+            return
+        }
+
+        // Restore the last conversation on launch. The assistant tab stays
+        // mounted for the session, so empty state here means first appearance.
+        if messages.isEmpty {
+            if let data = UserDefaults.standard.data(forKey: Self.chatStorageKey) {
+                messages = (try? JSONDecoder().decode([AIAgentMessage].self, from: data)) ?? []
+            }
+        }
+    }
+
+    private func persistConversation() {
+        let trimmed = Array(messages.suffix(Self.chatHistoryLimit))
+            .map { message in
+                var copy = message
+                copy.attachedImageData = nil
+                return copy
+            }
+        if let data = try? JSONEncoder().encode(trimmed) {
+            UserDefaults.standard.set(data, forKey: Self.chatStorageKey)
         }
     }
 

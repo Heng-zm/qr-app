@@ -176,6 +176,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
 ### 3. Glass AI Copilot & Multi-Modal Security Agent 🧠✨
 - **Conversational Multi-Turn Dialogue (like ChatGPT & Gemini)**:
   - **Contextual Memory**: Remembers and references previous questions, answers, and generated payloads across conversation turns.
+  - **Persistent Chat Memory**: The transcript survives app relaunches (last 60 turns restored automatically; trash resets it). Photo attachment blobs stay session-local.
   - **General & Technical Q&A**: Answers educational questions about QR codes, Reed-Solomon math, NFC protocols, PassKit, and mobile cryptography.
   - **Autonomous QR Detection**: When cloud LLMs (OpenAI, Gemini, Claude) generate QR configurations, GlassQR automatically detects the payload and renders an interactive, customizable vector QR widget with smart actions.
 - **Full Khmer Language Support (ការគាំទ្រភាសាខ្មែរ 🇰🇭)**:
@@ -200,6 +201,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - **iCalendar Events (RFC 5545)**: "Schedule Product Launch on Oct 20 at 6pm" -> standard `.ics` calendar invitation.
   - **Cryptocurrency Wallets**: Bitcoin (`BIP-21`), Ethereum (`EIP-681`), and Solana addresses with checksum validation.
   - **Payment Portals**: Instant Venmo, Cash App, and PayPal payment links.
+  - **GPX Trail Export Assistance**: "Export my trip as GPX" / "នាំចេញផ្លូវ" — the agent walks through the TrackMap record → export flow and hands off to the green `.gpx` share button.
   - **Wi-Fi & vCard 3.0**: Compliant Wi-Fi consortium network schemas and digital business cards.
 - **1-Tap Interactive Smart Actions**:
   - **"Program to NFC Tag"**: Directly flash the AI's generated QR code to a physical NFC sticker or card via `NFCStudioSheetView`.
