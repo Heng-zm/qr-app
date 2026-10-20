@@ -58,6 +58,11 @@ public struct LiDARScannerView: View {
                         .padding(.horizontal, 16)
                 }
 
+                if manager.lastDetectedCode != nil {
+                    detectionLockChip
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 Spacer()
 
                 if manager.lastDetectedCode != nil {
@@ -100,6 +105,35 @@ public struct LiDARScannerView: View {
             manager.stopSession()
             manager.clearHologram()
         }
+        .onChange(of: manager.lastDetectedCode) { _, newCode in
+            // One haptic tick when Vision locks onto a NEW code.
+            guard newCode != nil else { return }
+            Self.detectionHaptics.impactOccurred()
+        }
+    }
+
+    // MARK: - QR Detection Lock
+
+    /// Cached: a fresh generator per detection or per body render would churn
+    /// allocations (the View struct is recreated on every state update).
+    private static let detectionHaptics = UIImpactFeedbackGenerator(style: .medium)
+
+    private var detectionLockChip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "qrcode.viewfinder")
+                .font(.system(size: 12, weight: .black))
+                .foregroundStyle(.black)
+
+            Text(isKhmerLanguage ? "QR ជាប់ឡុក" : "QR LOCKED")
+                .font(.system(size: 12, weight: .black, design: .rounded))
+                .foregroundStyle(.black)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.cyan, in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.4), lineWidth: 1))
+        .shadow(color: Color.cyan.opacity(0.5), radius: 10)
+        .accessibilityLabel(isKhmerLanguage ? "កូដ QR រកឃើញ" : "QR code detected")
     }
 
     // MARK: - Top Command Bar

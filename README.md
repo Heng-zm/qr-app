@@ -347,6 +347,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Surface tilt estimation from ARKit raycast plane normals and physical in-frame size estimation from real camera intrinsics.
 - **Live QR Detection & Auto-Anchored AR Hologram**:
   - A background Vision barcode pass over the live ARKit camera feed (0.5 s cadence) detects QR codes automatically.
+  - Each newly detected code confirms with a "QR LOCKED" chip and a haptic tick; unavailable routes surface as friendly bilingual notices instead of raw MapKit error strings.
   - Detected codes are anchored as glowing 3D holograms that levitate, billboard toward the camera, and can be copied or routed straight into the standard scan result sheet.
 - **Depth Heatmap Palettes & Night Vision**:
   - Cycle Cyberpunk, Night Vision, and Thermal depth palettes with a vignette + CRT scanline night-vision overlay.

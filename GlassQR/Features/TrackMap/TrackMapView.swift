@@ -1402,8 +1402,9 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
 
             displayLink?.invalidate()
             let link = CADisplayLink(target: self, selector: #selector(onDisplayLinkTick))
-            // Support ProMotion 120Hz on modern devices, 60Hz minimum
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
+            // Cap at 60Hz: a lerped camera gains nothing from ProMotion 120Hz,
+            // and halving the refresh ceiling is a large battery win on Pro devices
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
             link.add(to: .main, forMode: .common)
             self.displayLink = link
         }

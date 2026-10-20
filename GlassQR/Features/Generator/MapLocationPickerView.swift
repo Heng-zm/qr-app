@@ -30,6 +30,11 @@ public struct MapLocationPickerView: View {
 
     private let locationManager = CLLocationManager()
 
+    /// Cached haptics: allocation per tap adds latency to every buzz.
+    private static let notificationHaptics = UINotificationFeedbackGenerator()
+    private static let impactMediumHaptics = UIImpactFeedbackGenerator(style: .medium)
+    private static let impactLightHaptics = UIImpactFeedbackGenerator(style: .light)
+
     public init(
         isPresented: Binding<Bool>,
         latitude: Binding<Double>,
@@ -362,7 +367,7 @@ public struct MapLocationPickerView: View {
 
         onLocationSelected?(lat, lon, name)
         isPresented = false
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        MapLocationPickerView.notificationHaptics.notificationOccurred(.success)
     }
 
     private func performSearch() {
@@ -391,7 +396,7 @@ public struct MapLocationPickerView: View {
             reverseGeocodedAddress = item.name ?? item.placemark.title ?? "Selected Location"
         }
         reverseGeocode(coordinate: coord)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        MapLocationPickerView.impactMediumHaptics.impactOccurred()
     }
 
     private func centerOnUserLocation() {
@@ -402,7 +407,7 @@ public struct MapLocationPickerView: View {
                 region.center = userCoord
             }
             reverseGeocode(coordinate: userCoord)
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            MapLocationPickerView.impactMediumHaptics.impactOccurred()
         }
     }
 
@@ -411,7 +416,7 @@ public struct MapLocationPickerView: View {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
                 region.center = coord
             }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            MapLocationPickerView.impactLightHaptics.impactOccurred()
         }
     }
 
@@ -421,7 +426,7 @@ public struct MapLocationPickerView: View {
             droppedCoordinate = center
         }
         reverseGeocode(coordinate: center)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        MapLocationPickerView.impactMediumHaptics.impactOccurred()
     }
 
     private func reverseGeocode(coordinate: CLLocationCoordinate2D) {
@@ -554,7 +559,7 @@ struct DroppableMapViewRepresentable: UIViewRepresentable {
         }
 
         private func triggerMarkerDrop(at coordinate: CLLocationCoordinate2D, in mapView: MKMapView) {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            MapLocationPickerView.impactMediumHaptics.impactOccurred()
             DispatchQueue.main.async {
                 self.parent.droppedCoordinate = coordinate
                 self.parent.onMarkerDropped?(coordinate)

@@ -395,10 +395,20 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
                 self.isCalculatingRoute = false
 
                 if let error = error {
-                    if (error as NSError).code == NSURLErrorCancelled {
+                    let nsError = error as NSError
+                    if nsError.code == NSURLErrorCancelled {
                         return
                     }
-                    self.navigationNotice = "Route error: \(error.localizedDescription)"
+                    // MapKit reports unavailable/undrawable routes (e.g. transit
+                    // beyond its limits, walking distance restrictions) as
+                    // DirectionsNotFound with a raw message no driver can act on.
+                    if nsError.domain == MKErrorDomain && nsError.code == MKErrorDirectionsNotFound {
+                        self.navigationNotice = self.transportMode == .transit
+                            ? "No transit route was found. Try Drive or Walk mode."
+                            : "No route was found for this trip."
+                        return
+                    }
+                    self.navigationNotice = "Route error: \(nsError.localizedDescription)"
                     return
                 }
 
