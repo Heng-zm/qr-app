@@ -68,8 +68,10 @@ public struct TrackMapView: View {
 
                 if !searchResults.isEmpty {
                     searchResultsDropdown
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 } else if let route = manager.activeRoute {
                     activeNavigationGuidanceCard(route: route)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 if let notice = manager.navigationNotice {
@@ -80,6 +82,9 @@ public struct TrackMapView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
+            .animation(.spring(response: 0.42, dampingFraction: 0.85), value: !searchResults.isEmpty)
+            .animation(.spring(response: 0.42, dampingFraction: 0.85), value: manager.activeRoute != nil)
+            .animation(.spring(response: 0.42, dampingFraction: 0.85), value: manager.navigationNotice == nil)
 
             // 3. Right-Side Map Quick Action Buttons
             VStack(spacing: 10) {
@@ -223,6 +228,7 @@ public struct TrackMapView: View {
                             .font(.system(size: 14))
                             .foregroundStyle(.white.opacity(0.5))
                     }
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 12)
@@ -232,6 +238,7 @@ public struct TrackMapView: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.white.opacity(0.18), lineWidth: 1)
             )
+            .animation(.spring(response: 0.28, dampingFraction: 0.8), value: searchQuery.isEmpty)
 
             // Language Toggle Chip (🇰🇭 / 🇺🇸)
             Button {
@@ -1443,6 +1450,8 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         var lastCenterTrigger: Int = 0
         var lastRouteFitTrigger: Int = 0
         var lastBreadcrumbCount: Int = 0
+        var lastOverlayCrumbs: Int = -1
+        weak var lastOverlayRoute: MKRoute?
         var isUserDragging: Bool = false
         var lastHeadingLocked: Bool = false
 
@@ -1634,8 +1643,18 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
             parent.onSelectCoordinate(coord)
         }
 
-        // Overlay updates
+        // Overlay updates — fast-pathed: SwiftUI re-renders at ~30Hz between
+        // GPS ticks, so only recompute when the route identity or trail
+        // length actually changed.
         func updateOverlays(mapView: MKMapView) {
+            let nextRoute = parent.manager.activeRoute
+            let crumbCount = parent.manager.breadcrumbs.count
+            if nextRoute === lastOverlayRoute && crumbCount == lastOverlayCrumbs {
+                return
+            }
+            lastOverlayRoute = nextRoute
+            lastOverlayCrumbs = crumbCount
+
             // Navigation route
             let routePolylines = mapView.overlays.filter { ($0 as? MKPolyline)?.title != "BreadcrumbTrail" }
             if let route = parent.manager.activeRoute {
