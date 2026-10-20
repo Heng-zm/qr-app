@@ -744,12 +744,15 @@ public struct LiDARARViewRepresentable: UIViewRepresentable {
             return container
         }
 
+        /// Cached: CIContext builds an expensive GPU pipeline per instance.
+        private static let qrRenderContext = CIContext()
+
         private func qrImage(for code: String) -> UIImage? {
             guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
             filter.setValue(Data(code.utf8), forKey: "inputMessage")
             filter.setValue("M", forKey: "inputCorrectionLevel")
             guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)),
-                  let cg = CIContext().createCGImage(output, from: output.extent) else { return nil }
+                  let cg = Self.qrRenderContext.createCGImage(output, from: output.extent) else { return nil }
             return UIImage(cgImage: cg)
         }
     }

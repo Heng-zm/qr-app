@@ -27,6 +27,9 @@ public struct TrackMapView: View {
     @State private var searchQuery: String = ""
     @State private var isSearching: Bool = false
     @State private var searchResults: [MKMapItem] = []
+    /// Retained so a newer query can cancel the previous in-flight search
+    /// instead of letting stale, slower results race in.
+    @State private var activeSearch: MKLocalSearch? = nil
     @State private var showDirectionsSheet: Bool = false
     @State private var showSpeedLimitPicker: Bool = false
     @State private var showHUDSheet: Bool = false
@@ -250,8 +253,26 @@ public struct TrackMapView: View {
     }
 
     private var searchResultsDropdown: some View {
+        let shownResults = Array(searchResults.prefix(4))
+
         VStack(spacing: 0) {
-            ForEach(searchResults.prefix(4), id: \.self) { item in
+            if isSearching && searchResults.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .tint(.cyan)
+                        .scaleEffect(0.8)
+                    Text(isKhmerLanguage ? "កំពុងស្វែងរក..." : "Searching...")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.7))
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+            }
+
+            ForEach(shownResults.indices, id: \.self) { index in
+                let item = shownResults[index]
+
                 Button {
                     selectSearchResult(item)
                 } label: {
@@ -281,7 +302,7 @@ public struct TrackMapView: View {
                     .padding(.vertical, 10)
                 }
 
-                if item != searchResults.prefix(4).last {
+                if index < shownResults.count - 1 {
                     Divider().background(Color.white.opacity(0.1))
                 }
             }
@@ -1160,6 +1181,10 @@ public struct TrackMapView: View {
     private func performSearch() {
         guard !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
+        // Cancel any in-flight search so a stale, slower response can never
+        // overwrite the results of a newer query.
+        activeSearch?.cancel()
+
         let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = searchQuery
         if let current = manager.currentCoordinate {
@@ -1167,10 +1192,27 @@ public struct TrackMapView: View {
         }
 
         let search = MKLocalSearch(request: request)
+        activeSearch = search
+        isSearching = true
+
         search.start { response, error in
             DispatchQueue.main.async {
-                if let items = response?.mapItems {
+                // Ignore completions from outdated queries (including user cancels).
+                guard self.activeSearch === search else { return }
+                self.activeSearch = nil
+                self.isSearching = false
+
+                if let items = response?.mapItems, !items.isEmpty {
                     self.searchResults = items
+                } else if let error = error {
+                    // User-cancelled searches report as errors; don't nag about them.
+                    let nsError = error as NSError
+                    let isCancelled = nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+                    if !isCancelled {
+                        self.triggerToast(self.isKhmerLanguage ? "ការស្វែងរកមិនជោគជ័យ" : "Search failed — check connection")
+                    }
+                } else {
+                    self.triggerToast(self.isKhmerLanguage ? "រកមិនឃើញលទ្ធផល" : "No results found")
                 }
             }
         }
@@ -1222,6 +1264,13 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
 
     public func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    /// CADisplayLink strongly retains its target, so without an explicit
+    /// teardown the tick would keep this coordinator (and a dangling map ref)
+    /// alive and firing long after the view leaves the hierarchy.
+    public static func dismantleUIView(_ mapView: MKMapView, coordinator: Coordinator) {
+        coordinator.teardown()
     }
 
     public func makeUIView(context: Context) -> MKMapView {
@@ -1330,9 +1379,13 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
             super.init()
         }
 
-        deinit {
+        /// Explicit teardown from dismantleUIView; deinit is not guaranteed to
+        /// run while the display link holds a strong reference to this target.
+        func teardown() {
             displayLink?.invalidate()
             displayLink = nil
+            mapView?.delegate = nil
+            mapView = nil
         }
 
         func setup(mapView: MKMapView) {

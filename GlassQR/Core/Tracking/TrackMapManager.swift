@@ -183,6 +183,10 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
     private let locationManager = CLLocationManager()
     private var lastLocation: CLLocation?
     private var tripTimer: Timer?
+
+    /// Cached haptics: allocating a generator per event adds latency to every buzz.
+    private let notificationHaptics = UINotificationFeedbackGenerator()
+    private let impactHaptics = UIImpactFeedbackGenerator(style: .medium)
     private var simulationTimer: Timer?
     private var previousSpeedMPS: Double = 0.0
     private var previousSpeedTimestamp: Date?
@@ -516,7 +520,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
                 estimatedTimeRemaining = 0.0
                 routeProgressPercentage = 1.0
                 currentManeuverIcon = "flag.checkered"
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                notificationHaptics.notificationOccurred(.success)
                 return
             }
         }
@@ -529,7 +533,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
             offRouteCount += 1
             if offRouteCount >= 3 && !isOffRoute {
                 isOffRoute = true
-                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                notificationHaptics.notificationOccurred(.warning)
                 if Date().timeIntervalSince(lastRerouteTimestamp) > 10.0 {
                     lastRerouteTimestamp = Date()
                     recalculateRouteSilently()
@@ -597,7 +601,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         } else {
             distanceToNextStep = nextStep.distanceMeters
         }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        impactHaptics.impactOccurred()
     }
 
     private func distanceToPolyline(point: MKMapPoint, polyline: MKPolyline) -> Double {
@@ -803,7 +807,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         if isSpeedLimitAlertEnabled && currentSpeed > speedLimit {
             if !isOverspeed {
                 isOverspeed = true
-                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                notificationHaptics.notificationOccurred(.warning)
             }
         } else {
             isOverspeed = false
