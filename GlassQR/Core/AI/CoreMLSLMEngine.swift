@@ -69,6 +69,7 @@ public enum SLMIntentClass: String, CaseIterable, Sendable {
         switch self {
         case .tripTrail:
             return ["gpx", "gpx file", "export gpx", "export trip", "export track", "trail export", "strava", "garmin", "relive", "breadcrumb file", "save my track", "trip file", "route file", "share my route", "នាំចេញផ្លូវ", "នាំចេញ gpx", "ឯកសារកំណត់ត្រាផ្លូវ"]
+        case .encryptedVault:
             return ["encrypt", "vault", "steganography", "passcode", "secret note", "confidential", "cipher", "hidden text", "អ៊ិនគ្រីប", "សម្ងាត់", "កូដសម្ងាត់", "ពាក្យសម្ងាត់", "លាក់", "សោសម្ងាត់", "សោ"]
         case .walletPass:
             return ["wallet", "pass", "ticket", "boarding", "loyalty", "membership", "coupon", "event pass", "pkpass", "កាត", "សំបុត្រ", "កាតសមាជិក", "កាតបញ្ចុះតម្លៃ", "ប័ណ្ណ", "apple wallet"]
