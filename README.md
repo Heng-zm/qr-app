@@ -41,8 +41,12 @@ GlassQR/
     │   │   └── SteganographicQREngine.swift # Zero-knowledge AES-GCM 256-bit & Biometric Face ID vault
     │   ├── DocumentScanner/
     │   │   └── DocumentCameraRepresentable.swift # VisionKit multi-page physical document scanner
+    │   ├── LiDAR/
+    │   │   └── LiDARManager.swift           # Apple LiDAR ToF rangefinder, depth telemetry & AR engine
     │   ├── OCR/
     │   │   └── LiveTextScannerRepresentable.swift # VisionKit DataScannerViewController & simulator fallback
+    │   ├── Tracking/
+    │   │   └── TrackMapManager.swift        # GNSS telemetry, speedometer engine & turn-by-turn routing
     │   ├── Translation/
     │   │   └── GlassTranslationEngine.swift # On-device language detection & translation engine
     │   ├── NFC/
@@ -70,7 +74,12 @@ GlassQR/
     │   │   ├── ScanResultSheetView.swift    # Medium-detent Liquid Glass result sheet & Apple Map preview
     │   │   ├── DocumentScannerSheetView.swift # Multi-page document scanner, image filters & PDF compiler
     │   │   ├── SecretVaultUnlockSheetView.swift # Biometric Face ID / Passcode encrypted QR unlock studio
-    │   │   └── TextOCRSheetView.swift       # Live Camera Text OCR to QR modal studio
+    │   │   ├── TextOCRSheetView.swift       # Live Camera Text OCR to QR modal studio
+    │   │   └── LiDARScannerView.swift       # LiDAR rangefinder, depth-mesh & AR hologram studio
+    │   │
+    │   ├── TrackMap/
+    │   │   ├── TrackMapView.swift           # 3D navigation map, destination search & telemetry HUD
+    │   │   └── TrackMapHUDView.swift        # Mirrored windshield Head-Up Display projection
     │   │
     │   ├── Wallet/
     │   │   └── WalletPassSheetView.swift    # Interactive Apple Wallet Pass card studio & .pkpass export
@@ -85,7 +94,7 @@ GlassQR/
     │   │   └── AIAssistantView.swift        # Liquid Glass AI Agent chat, threat inspector & QR generator
     │   │
     │   └── Navigation/
-    │       ├── MainGlassTabView.swift       # 3-tab platter ("Generate", "Scan" & "AI Agent")
+    │       ├── MainGlassTabView.swift       # 4-tab platter ("Generate", "Scan", "TrackMap" & "AI Agent")
     │       └── RootContentView.swift       # Root coordinator between Onboarding & TabView
     │
     └── Resources/
@@ -153,6 +162,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - Thread-safe camera capture running on a dedicated serial background queue with tap-to-focus and optical zoom.
 - **Liquid Glass TrackMap & Live Speedometer Telemetry 🗺️🏎️**:
   - **Beyond Google Maps Navigation**: Full-bleed interactive 3D MapKit map with traffic overlays, heading tracking, destination search, distance, ETA, and turn-by-turn directions.
+  - **Live Turn-by-Turn Tracking**: Maneuver guidance card with per-step progress, multi-mode routes (Drive / Walk / Transit), alternate route picker, off-route detection with automatic silent rerouting, and a simulated drive demo mode.
   - **High-Precision Live Speedometer**: Sub-second GPS digital readout & chromatic arc tachometer with seamless km/h ⇄ mph switching.
   - **Windshield HUD Mode (Head-Up Display)**: Inverted/mirrored high-contrast projection designed for placing on car dashboards at night for holographic windshield reflection.
   - **Speed-Gradient Breadcrumbs**: Real-time GPS path recording color-coded by velocity (Cyan=slow, Green=cruise, Orange/Red=high speed).
@@ -328,6 +338,22 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
 - **Hardware Telemetry & Live ANE Latency Benchmark**:
   - Real-time diagnostic card inside AI Agent Settings showcasing compute target, model architecture, RAM usage, and privacy guarantees.
   - One-tap **"Run Live ANE Latency Benchmark"** evaluates real-time tensor classification directly on the device.
+
+---
+
+### 14. Apple LiDAR Laser Rangefinder & AR Hologram Studio 🔮📏
+- **Time-of-Flight Distance Ranging**:
+  - Real LiDAR depth-map sampling (`sceneDepth` / `smoothedSceneDepth`) with center-pixel readout, adaptive EMA smoothing, and jitter-penalized laser confidence percentages.
+  - Surface tilt estimation from ARKit raycast plane normals and physical in-frame size estimation from real camera intrinsics.
+- **Live QR Detection & Auto-Anchored AR Hologram**:
+  - A background Vision barcode pass over the live ARKit camera feed (0.5 s cadence) detects QR codes automatically.
+  - Detected codes are anchored as glowing 3D holograms that levitate, billboard toward the camera, and can be copied or routed straight into the standard scan result sheet.
+- **Depth Heatmap Palettes & Night Vision**:
+  - Cycle Cyberpunk, Night Vision, and Thermal depth palettes with a vignette + CRT scanline night-vision overlay.
+- **LiDAR Scene Reconstruction Mesh**:
+  - Wireframe `ARMeshGeometry` rendering via SceneKit with lock-protected tint/visibility control on the render thread.
+- **Graceful Hardware Fallback**:
+  - Non-Pro devices and simulators run a physics-based simulation mode; camera-permission denial surfaces an "Open Settings" hint instead of fake readings.
 
 ---
 

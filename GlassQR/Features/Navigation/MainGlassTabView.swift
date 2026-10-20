@@ -103,6 +103,16 @@ public struct MainGlassTabView: View {
                 }
             }
         }
+        .onChange(of: selectedTab) { _, newTab in
+            // Tabs stay mounted (opacity-based switching for state preservation),
+            // so onAppear/onDisappear never fire on switches — route the GNSS
+            // lifecycle from tab selection instead.
+            if newTab == .trackmap {
+                TrackMapManager.shared.startTracking()
+            } else {
+                TrackMapManager.shared.stopTracking()
+            }
+        }
     }
 
     // MARK: - Native iOS 26 Liquid Glass Bottom Nav

@@ -279,6 +279,22 @@ public struct LiDARScannerView: View {
 
             Spacer(minLength: 0)
 
+            // Route the detected code through the standard result pipeline
+            // (dismisses this cover so ScannerView's result sheet can present).
+            Button {
+                if let code = manager.lastDetectedCode {
+                    onCodeScanned?(code, manager.lastDetectedSymbology ?? "QR Code")
+                    dismiss()
+                }
+            } label: {
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .frame(width: 34, height: 34)
+                    .background(Color.cyan, in: Circle())
+            }
+            .accessibilityLabel(isKhmerLanguage ? "បើកលទ្ធផល" : "Open result")
+
             Button {
                 if let code = manager.lastDetectedCode {
                     UIPasteboard.general.string = code

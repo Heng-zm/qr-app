@@ -10,6 +10,7 @@
 import Foundation
 import ARKit
 import AVFoundation
+import Vision
 import SwiftUI
 import Combine
 
@@ -55,6 +56,12 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
     private var simulationAngle: Double = 0.0
     private var lastProcessedTimestamp: TimeInterval = 0
     private let updateInterval: TimeInterval = 1.0 / 20.0 // throttle UI updates to 20 Hz
+
+    // Live QR detection pipeline (background Vision pass over the ARKit feed)
+    private let detectionQueue = DispatchQueue(label: "com.glassqr.lidar.barcodes", qos: .utility)
+    private var isBarcodeScanInFlight = false
+    private var lastBarcodeScanTimestamp: TimeInterval = 0
+    private let barcodeScanInterval: TimeInterval = 0.5
 
     // Valid depth range (meters)
     private let minValidDepth: Float = 0.08
@@ -164,6 +171,12 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
         // that often needlessly re-renders SwiftUI.
         guard frame.timestamp - lastProcessedTimestamp >= updateInterval else { return }
         lastProcessedTimestamp = frame.timestamp
+
+        // Live QR detection cadence: auto-anchor a hologram for newly seen codes.
+        if isSessionRunning, frame.timestamp - lastBarcodeScanTimestamp >= barcodeScanInterval {
+            lastBarcodeScanTimestamp = frame.timestamp
+            scanForBarcodes(in: frame)
+        }
 
         let cameraTransform = frame.camera.transform
         let camPos = SIMD3<Float>(cameraTransform.columns.3.x, cameraTransform.columns.3.y, cameraTransform.columns.3.z)
@@ -329,6 +342,40 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
             }
         }
         return count * 4
+    }
+
+    // MARK: - Live QR Detection (Vision)
+
+    /// Runs a background Vision barcode pass over the ARKit camera feed.
+    /// The ARFrame is retained by the closure so ARKit cannot recycle its buffers.
+    private func scanForBarcodes(in frame: ARFrame) {
+        guard !isBarcodeScanInFlight else { return }
+        isBarcodeScanInFlight = true
+
+        let handler = VNImageRequestHandler(cvPixelBuffer: frame.capturedImage,
+                                            orientation: .right,
+                                            options: [:])
+        let request = VNDetectBarcodesRequest()
+        request.symbologies = [.qr]
+        request.resultStrategy = .payload
+
+        detectionQueue.async { [weak self] in
+            defer { self?.isBarcodeScanInFlight = false }
+            try? handler.perform([request])
+            guard let observation = request.results?.first,
+                  let payload = observation.payloadStringValue, !payload.isEmpty else { return }
+
+            DispatchQueue.main.async {
+                self?.handleDetectedBarcode(payload)
+            }
+        }
+    }
+
+    private func handleDetectedBarcode(_ payload: String) {
+        // One-shot per code: @Published only fires on change, so an identical code
+        // held in view will not re-anchor the hologram or re-open the result flow.
+        guard payload != lastDetectedCode else { return }
+        anchorHologram(code: payload, symbology: "QR Code")
     }
 
     // MARK: - Holographic AR QR Code Anchor

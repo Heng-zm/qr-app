@@ -174,12 +174,8 @@ public struct TrackMapView: View {
             .padding(.horizontal, 14)
             .padding(.bottom, 84) // Space for floating bottom tab bar
         }
-        .onAppear {
-            manager.startTracking()
-        }
-        .onDisappear {
-            manager.stopTracking()
-        }
+        // GNSS lifecycle is routed by MainGlassTabView via onChange(of: selectedTab)
+        // because opacity-based tabs never fire onAppear/onDisappear on switches.
         .sheet(isPresented: $showHUDSheet) {
             TrackMapHUDView()
         }

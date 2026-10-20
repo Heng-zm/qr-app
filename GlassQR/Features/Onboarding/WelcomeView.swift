@@ -36,6 +36,18 @@ public struct WelcomeView: View {
             icon: "sparkles",
             title: "Glass AI Assistant",
             subtitle: "Generate styled codes from natural text and analyze links for security."
+        ),
+        FeatureHighlight(
+            id: "lidar",
+            icon: "scope",
+            title: "LiDAR Rangefinder",
+            subtitle: "Measure real-world distances with Apple LiDAR and anchor QR holograms in AR."
+        ),
+        FeatureHighlight(
+            id: "trackmap",
+            icon: "location.north.line.fill",
+            title: "TrackMap Navigation",
+            subtitle: "Live GPS speedometer, turn-by-turn routes, and a windshield HUD mode."
         )
     ]
 
