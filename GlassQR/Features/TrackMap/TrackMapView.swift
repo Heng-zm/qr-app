@@ -12,6 +12,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import QuartzCore
+import UIKit
 
 public struct TrackMapView: View {
     @StateObject private var manager = TrackMapManager.shared
@@ -72,7 +73,7 @@ public struct TrackMapView: View {
                 }
 
                 if let notice = manager.navigationNotice {
-                    noticeBanner(notice)
+                    noticeBanner(localizedNotice(notice))
                 }
 
                 Spacer()
@@ -352,6 +353,28 @@ public struct TrackMapView: View {
         )
         .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
         .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    /// Manager notices are authored in English; known static strings map to
+    /// Khmer at render time. Dynamic strings (raw MapKit error details) fall
+    /// back to the original text.
+    private func localizedNotice(_ notice: String) -> String {
+        guard isKhmerLanguage else { return notice }
+        if notice.hasPrefix("Route error: ") {
+            return "កំហុសផ្លូវ: \(notice.dropFirst("Route error: ".count))"
+        }
+        switch notice {
+        case "Location permission denied. Enable in iOS Settings to track GPS speed.":
+            return "សិទ្ធិទីតាំងត្រូវបានបដិសេធ។ បើកនៅក្នុងការកំណត់ iOS ដើម្បីតាមដានល្បឿន GPS។"
+        case "No route found to destination.":
+            return "រកមិនឃើញផ្លូវទៅកាន់ទិសដៅទេ។"
+        case "No transit route was found. Try Drive or Walk mode.":
+            return "រកមិនឃើញផ្លូវដឹកជញ្ជូនទេ។ សូមព្យាយាមរបៀបបើកបរ ឬរបៀបដើរ។"
+        case "No route was found for this trip.":
+            return "រកមិនឃើញផ្លូវសម្រាប់ដំណើរនេះទេ។"
+        default:
+            return notice
+        }
     }
 
     private func activeNavigationGuidanceCard(route: MKRoute) -> some View {
@@ -842,6 +865,17 @@ public struct TrackMapView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.2), lineWidth: 1))
                 }
 
+                // 5. GPX Trail Export
+                Button {
+                    exportGPXTrail()
+                } label: {
+                    Image(systemName: "arrow.down.doc.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(manager.breadcrumbs.count > 1 ? Color.green : Color.white.opacity(0.65))
+                        .frame(width: 34, height: 32)
+                        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                }
+
                 // 4. Expand / Collapse Drawer Toggle
                 Button {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
@@ -888,6 +922,44 @@ public struct TrackMapView: View {
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - GPX Trail Export
+
+    /// Writes the recorded trail to a temp .gpx file and opens the system
+    /// share sheet (same presentation flow as GeneratorView.sharePDF).
+    private func exportGPXTrail() {
+        guard let gpx = manager.buildGPXDocument() else {
+            triggerToast(isKhmerLanguage ? "គ្មានផ្លូវដែលបានកត់ត្រាទេ" : "No trail recorded yet")
+            return
+        }
+
+        let stampFormatter = DateFormatter()
+        stampFormatter.dateFormat = "yyyy-MM-dd-HHmm"
+        let stamp = manager.breadcrumbs.first?.timestamp ?? Date()
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GlassQR-Trip-\(stampFormatter.string(from: stamp)).gpx")
+        do {
+            try gpx.write(to: tempURL, atomically: true, encoding: .utf8)
+        } catch {
+            triggerToast(isKhmerLanguage ? "នាំចេញមិនបានជោគជ័យ" : "Export failed")
+            return
+        }
+
+        let activityVC = UIActivityViewController(activityItems: [tempURL], applicationActivities: nil)
+        if let windowScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene ?? UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController ?? windowScene.windows.first?.rootViewController {
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            if let popover = activityVC.popoverPresentationController {
+                popover.sourceView = topVC.view
+                popover.sourceRect = CGRect(x: topVC.view.bounds.midX, y: topVC.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            topVC.present(activityVC, animated: true)
+        }
     }
 
     // MARK: - Turn-by-Turn Directions Sheet

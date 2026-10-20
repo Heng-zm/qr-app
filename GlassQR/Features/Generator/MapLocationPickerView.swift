@@ -31,9 +31,10 @@ public struct MapLocationPickerView: View {
     private let locationManager = CLLocationManager()
 
     /// Cached haptics: allocation per tap adds latency to every buzz.
-    private static let notificationHaptics = UINotificationFeedbackGenerator()
-    private static let impactMediumHaptics = UIImpactFeedbackGenerator(style: .medium)
-    private static let impactLightHaptics = UIImpactFeedbackGenerator(style: .light)
+    /// `fileprivate` so both the view and its nested map Coordinators can use them.
+    fileprivate static let notificationHaptics = UINotificationFeedbackGenerator()
+    fileprivate static let impactMediumHaptics = UIImpactFeedbackGenerator(style: .medium)
+    fileprivate static let impactLightHaptics = UIImpactFeedbackGenerator(style: .light)
 
     public init(
         isPresented: Binding<Bool>,

@@ -292,6 +292,36 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         averageSpeed = unit.convert(speedInMetersPerSecond: avgMPS)
     }
 
+    // MARK: - GPX Trail Export
+
+    /// Serializes the recorded breadcrumbs as a GPX 1.1 document (ele + time per
+    /// point; spec-clean for Strava / Google Earth / Garmin imports).
+    /// Returns nil while nothing meaningful has been recorded yet.
+    public func buildGPXDocument() -> String? {
+        guard breadcrumbs.count > 1 else { return nil }
+
+        let timeFormatter = ISO8601DateFormatter()
+
+        var gpx = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="GlassQR">
+          <trk>
+            <name>GlassQR Trip</name>
+            <trkseg>
+        """
+        gpx.reserveCapacity(160 + breadcrumbs.count * 150)
+
+        for point in breadcrumbs {
+            gpx += "\n      <trkpt lat=\"\(String(format: "%.6f", point.coordinate.latitude))\" lon=\"\(String(format: "%.6f", point.coordinate.longitude))\">"
+            gpx += "\n        <ele>\(String(format: "%.1f", point.altitudeMeters))</ele>"
+            gpx += "\n        <time>\(timeFormatter.string(from: point.timestamp))</time>"
+            gpx += "\n      </trkpt>"
+        }
+
+        gpx += "\n    </trkseg>\n  </trk>\n</gpx>"
+        return gpx
+    }
+
     // MARK: - Unit Switcher
 
     public func setUnit(_ newUnit: SpeedUnit) {
@@ -402,7 +432,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
                     // MapKit reports unavailable/undrawable routes (e.g. transit
                     // beyond its limits, walking distance restrictions) as
                     // DirectionsNotFound with a raw message no driver can act on.
-                    if nsError.domain == MKErrorDomain && nsError.code == MKErrorDirectionsNotFound {
+                    if nsError.domain == MKErrorDomain && nsError.code == MKError.Code.directionsNotFound.rawValue {
                         self.navigationNotice = self.transportMode == .transit
                             ? "No transit route was found. Try Drive or Walk mode."
                             : "No route was found for this trip."
