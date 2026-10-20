@@ -357,7 +357,6 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
                                             options: [:])
         let request = VNDetectBarcodesRequest()
         request.symbologies = [.qr]
-        request.resultStrategy = .payload
 
         detectionQueue.async { [weak self] in
             defer { self?.isBarcodeScanInFlight = false }
