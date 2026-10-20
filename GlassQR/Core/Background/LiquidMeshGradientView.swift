@@ -11,7 +11,11 @@ public struct LiquidMeshGradientView: View {
     public init() {}
 
     public var body: some View {
-        TimelineView(.animation) { timeline in
+        // Ambient cadence: the undulation period is ~10s, so 24fps is visually
+        // continuous — while freeing 2.5–5x of the per-frame budget that the
+        // display refresh rate was spending on three always-mounted instances
+        // (app root, tab container, assistant) for map/camera/scroll work.
+        TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { timeline in
             let date = timeline.date.timeIntervalSinceReferenceDate
             let t = Float(date * 0.45)
 
