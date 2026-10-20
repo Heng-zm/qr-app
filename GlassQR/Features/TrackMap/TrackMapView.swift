@@ -14,8 +14,7 @@ import CoreLocation
 import QuartzCore
 
 public struct TrackMapView: View {
-    @ObservedObject var manager = TrackMapManager.shared
-    @StateObject private var searchCompleter = MapSearchModel()
+    @StateObject private var manager = TrackMapManager.shared
 
     // Map Presentation States
     @State private var mapType: MKMapType = .standard
@@ -32,6 +31,7 @@ public struct TrackMapView: View {
     @State private var showSpeedLimitPicker: Bool = false
     @State private var showHUDSheet: Bool = false
     @State private var showGeoQRSheet: Bool = false
+    @State private var geoQRPayload: String = ""
     @State private var isKhmerLanguage: Bool = false
 
     // Telemetry Expanded State
@@ -66,6 +66,10 @@ public struct TrackMapView: View {
                     searchResultsDropdown
                 } else if let route = manager.activeRoute {
                     activeNavigationGuidanceCard(route: route)
+                }
+
+                if let notice = manager.navigationNotice {
+                    noticeBanner(notice)
                 }
 
                 Spacer()
@@ -172,6 +176,9 @@ public struct TrackMapView: View {
         }
         .onAppear {
             manager.startTracking()
+        }
+        .onDisappear {
+            manager.stopTracking()
         }
         .sheet(isPresented: $showHUDSheet) {
             TrackMapHUDView()
@@ -289,6 +296,45 @@ public struct TrackMapView: View {
                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.4), radius: 12, x: 0, y: 6)
+    }
+
+    // MARK: - Route / Permission Notice Banner
+
+    private func noticeBanner(_ notice: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(.orange)
+
+            Text(notice)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            Button {
+                manager.navigationNotice = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .frame(width: 24, height: 24)
+                    .background(Color.white.opacity(0.12), in: Circle())
+            }
+            .accessibilityLabel("Dismiss notice")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(red: 0.08, green: 0.09, blue: 0.14).opacity(0.94), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.orange.opacity(0.45), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 4)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private func activeNavigationGuidanceCard(route: MKRoute) -> some View {
@@ -729,11 +775,14 @@ public struct TrackMapView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.cyan.opacity(0.4), lineWidth: 1))
                 }
 
-                // 2. Trip Recording Toggle
+                // 2. Trip Recording Toggle (pause / resume without wiping the trip)
                 Button {
                     if manager.isRecordingTrip {
                         manager.pauseTripRecording()
                         triggerToast(isKhmerLanguage ? "បានផ្អាកការកត់ត្រាផ្លូវ" : "Trip Paused")
+                    } else if manager.tripElapsedTime > 0 {
+                        manager.resumeTripRecording()
+                        triggerToast(isKhmerLanguage ? "បានបន្តការកត់ត្រាផ្លូវ" : "Trip Resumed")
                     } else {
                         manager.startTripRecording()
                         triggerToast(isKhmerLanguage ? "បានចាប់ផ្តើមកត់ត្រាផ្លូវ" : "Recording Trip...")
@@ -743,7 +792,13 @@ public struct TrackMapView: View {
                         Circle()
                             .fill(manager.isRecordingTrip ? Color.red : Color.green)
                             .frame(width: 7, height: 7)
-                        Text(manager.isRecordingTrip ? (isKhmerLanguage ? "កំពុងកត់ត្រា" : "Recording") : (isKhmerLanguage ? "កត់ត្រាផ្លូវ" : "Record"))
+                        Text(
+                            manager.isRecordingTrip
+                            ? (isKhmerLanguage ? "កំពុងកត់ត្រា" : "Recording")
+                            : (manager.tripElapsedTime > 0
+                               ? (isKhmerLanguage ? "បន្ត" : "Resume")
+                               : (isKhmerLanguage ? "កត់ត្រាផ្លូវ" : "Record"))
+                        )
                     }
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
@@ -753,8 +808,9 @@ public struct TrackMapView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.2), lineWidth: 1))
                 }
 
-                // 3. Share Geo-QR Button
+                // 3. Share Geo-QR Button (snapshot the payload per presentation)
                 Button {
+                    geoQRPayload = manager.generateGeoQRData()
                     showGeoQRSheet = true
                 } label: {
                     HStack(spacing: 4) {
@@ -1031,7 +1087,9 @@ public struct TrackMapView: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, 16)
 
-                    let payload = manager.generateGeoQRData()
+                    // Captured when the sheet opens, so GPS ticks don't re-run the
+                    // QR renderer on every location update while it is showing.
+                    let payload = geoQRPayload
                     if let qrImage = qrRenderer.render(
                         text: payload,
                         foregroundColor: UIColor(red: 0.05, green: 0.05, blue: 0.08, alpha: 1.0),
@@ -1155,12 +1213,6 @@ public struct TrackMapView: View {
     }
 }
 
-// MARK: - Search Model Helper
-
-final class MapSearchModel: ObservableObject {
-    // Kept lightweight for search management
-}
-
 // MARK: - UIViewRepresentable for MKMapView (60fps High-Refresh Telemetry Engine)
 
 public struct TrackMapViewRepresentable: UIViewRepresentable {
@@ -1187,8 +1239,17 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         mapView.isScrollEnabled = true
         mapView.isZoomEnabled = true
 
+        // The double-tap must exist before the single tap so the single tap can
+        // wait for it to fail — otherwise the first press of a double-tap zoom
+        // would drop a pin and start navigation.
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.delegate = context.coordinator
+        mapView.addGestureRecognizer(doubleTap)
+
         // Tap gesture to drop pin and navigate
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tap.require(toFail: doubleTap)
         mapView.addGestureRecognizer(tap)
 
         // Seamless gestures to detect manual user panning/zooming and unlock camera lock
@@ -1199,11 +1260,6 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         let pinch = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
         pinch.delegate = context.coordinator
         mapView.addGestureRecognizer(pinch)
-
-        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
-        doubleTap.numberOfTapsRequired = 2
-        doubleTap.delegate = context.coordinator
-        mapView.addGestureRecognizer(doubleTap)
 
         context.coordinator.setup(mapView: mapView)
 
@@ -1218,6 +1274,13 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         }
         if mapView.showsTraffic != showsTraffic {
             mapView.showsTraffic = showsTraffic
+        }
+
+        // Battery: suspend the 60fps camera lerp display link whenever
+        // heading-lock is off so the main thread doesn't wake for a no-op guard.
+        if context.coordinator.lastHeadingLocked != isHeadingLocked {
+            context.coordinator.lastHeadingLocked = isHeadingLocked
+            context.coordinator.displayLinkSetPaused(!isHeadingLocked)
         }
 
         // Overlays (Routes & Breadcrumbs)
@@ -1255,6 +1318,7 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         var lastRouteFitTrigger: Int = 0
         var lastBreadcrumbCount: Int = 0
         var isUserDragging: Bool = false
+        var lastHeadingLocked: Bool = false
 
         public func frameRouteOverview(route: MKRoute) {
             guard let mapView = mapView else { return }
@@ -1284,6 +1348,12 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
             link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 60)
             link.add(to: .main, forMode: .common)
             self.displayLink = link
+        }
+
+        /// The CADisplayLink is paused whenever heading-lock is off, so no camera
+        /// writes (and no display-link wakeups) happen while the user browses.
+        func displayLinkSetPaused(_ paused: Bool) {
+            displayLink?.isPaused = paused
         }
 
         public func engageHeadingLock() {

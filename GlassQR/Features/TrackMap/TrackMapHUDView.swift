@@ -10,7 +10,7 @@
 import SwiftUI
 
 public struct TrackMapHUDView: View {
-    @ObservedObject var manager = TrackMapManager.shared
+    @StateObject private var manager = TrackMapManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var isMirrored: Bool = true

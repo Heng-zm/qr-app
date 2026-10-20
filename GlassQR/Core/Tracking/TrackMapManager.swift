@@ -323,6 +323,11 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
             return "arrow.up.left"
         } else if lower.contains("slight right") || lower.contains("bear right") {
             return "arrow.up.right"
+        } else if lower.contains("keep left") {
+            // must be tested before the generic "left" pattern
+            return "arrow.left"
+        } else if lower.contains("keep right") {
+            return "arrow.right"
         } else if lower.contains("left") {
             return "arrow.turn.up.left"
         } else if lower.contains("right") {
@@ -423,9 +428,16 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         self.routeProgressPercentage = 0.0
 
         var steps: [RouteStepItem] = []
+        // MKRoute can contain instruction-less "spacer" steps (mostly transit).
+        // Fold their distances forward into the next guided step so the remaining
+        // distance math in processRouteProgress stays consistent with route.distance.
+        var pendingDistance: Double = 0.0
         for step in route.steps {
             let trimmed = step.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
+            guard !trimmed.isEmpty else {
+                pendingDistance += step.distance
+                continue
+            }
 
             let points = step.polyline.points()
             let count = step.polyline.pointCount
@@ -436,13 +448,14 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
             steps.append(
                 RouteStepItem(
                     instructions: trimmed,
-                    distanceMeters: step.distance,
+                    distanceMeters: step.distance + pendingDistance,
                     notice: step.notice,
                     startCoordinate: startCoord,
                     endCoordinate: endCoord,
                     maneuverIcon: icon
                 )
             )
+            pendingDistance = 0
         }
         self.routeSteps = steps
 
@@ -621,12 +634,18 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
 
     // MARK: - ETA Formatting Helpers
 
+    /// Cached: this helper runs on every telemetry tick (~30 Hz in simulation),
+    /// so allocating a DateFormatter per call would churn the heap each frame.
+    private static let etaClockFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     public func formattedETAClock() -> String {
         guard estimatedTimeRemaining > 0 else { return "--:--" }
         let arrivalDate = Date().addingTimeInterval(estimatedTimeRemaining)
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: arrivalDate)
+        return Self.etaClockFormatter.string(from: arrivalDate)
     }
 
     public func formattedDurationRemaining(isKhmer: Bool = false) -> String {
@@ -641,6 +660,10 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
     }
 
     // MARK: - CLLocationManagerDelegate
+    //
+    // CLLocationManager delivers delegate callbacks on the thread that created
+    // it. TrackMapManager.shared is first created by SwiftUI on the main thread,
+    // so every callback below — including its @Published writes — runs on main.
 
     public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
@@ -876,7 +899,12 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         }
 
         if !isRecordingTrip {
-            startTripRecording()
+            // A paused trip survives simulation start — only a fresh trip begins recording.
+            if tripElapsedTime > 0 {
+                resumeTripRecording()
+            } else {
+                startTripRecording()
+            }
         }
 
         simulationTimer?.invalidate()

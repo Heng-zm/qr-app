@@ -15,7 +15,7 @@ import SceneKit
 import Combine
 
 public struct LiDARScannerView: View {
-    @ObservedObject var manager = LiDARManager.shared
+    @StateObject private var manager = LiDARManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var isKhmerLanguage: Bool = false
@@ -52,6 +52,11 @@ public struct LiDARScannerView: View {
                 topCommandBar
                     .padding(.top, 14)
                     .padding(.horizontal, 16)
+
+                if manager.isCameraAccessDenied {
+                    cameraAccessHint
+                        .padding(.horizontal, 16)
+                }
 
                 Spacer()
 
@@ -357,9 +362,10 @@ public struct LiDARScannerView: View {
                 Spacer()
 
                 Button {
+                    // Demo payload anchors a hologram in AR space only — it must not
+                    // flow into onCodeScanned, which saves fake scans to history.
                     let testPayload = "https://example.com/lidar/demo"
                     manager.anchorHologram(code: testPayload, symbology: "QR Code")
-                    onCodeScanned?(testPayload, "QR Code")
                     triggerToast(isKhmerLanguage ? "បានបាញ់ Hologram 3D" : "Projected 3D AR Hologram!")
                 } label: {
                     HStack(spacing: 4) {
@@ -415,6 +421,58 @@ public struct LiDARScannerView: View {
         .padding(.vertical, 8)
         .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.08), lineWidth: 1))
+    }
+
+    // MARK: - Camera Permission Hint
+
+    private var cameraAccessHint: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(.orange)
+
+            Text(isKhmerLanguage
+                 ? "ការចូលប្រើកាមេរ៉ាត្រូវបានបិទ។ បើក GlassQR នៅក្នុង iOS Settings ដើម្បីទទួលរង្វង់លាស៊ែរពិត។"
+                 : "Camera access is off. Enable GlassQR in iOS Settings to unlock the real LiDAR feed.")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                }
+            } label: {
+                Text(isKhmerLanguage ? "ការកំណត់" : "Settings")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.cyan, in: Capsule())
+            }
+            .accessibilityLabel(isKhmerLanguage ? "បើកការកំណត់" : "Open Settings")
+
+            Button {
+                manager.isCameraAccessDenied = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 24, height: 24)
+                    .background(Color.white.opacity(0.12), in: Circle())
+            }
+            .accessibilityLabel(isKhmerLanguage ? "បិទ" : "Dismiss")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.orange.opacity(0.5), lineWidth: 1)
+        )
     }
 
     private func triggerToast(_ text: String) {
@@ -553,17 +611,21 @@ public struct LiDARARViewRepresentable: UIViewRepresentable {
 
         private func makeGeometry(from mesh: ARMeshGeometry) -> SCNGeometry {
             let v = mesh.vertices
-            let vertexSource = SCNGeometrySource(buffer: v.buffer,
+            // Copy BOTH buffers: ARKit reuses its Metal buffers between frames, so
+            // SceneKit must own a snapshot of the vertices as well as the indices,
+            // otherwise the mesh can garble when a buffer is refilled before upload.
+            let vertexData = Data(bytes: v.buffer.contents().advanced(by: v.offset),
+                                  count: v.count * v.stride)
+            let vertexSource = SCNGeometrySource(data: vertexData,
                                                  vertexFormat: v.format,
                                                  semantic: .vertex,
                                                  vertexCount: v.count,
-                                                 dataOffset: v.offset,
+                                                 dataOffset: 0,
                                                  dataStride: v.stride)
             let f = mesh.faces
-            // Copy the index data: the Metal buffer is reused by ARKit between updates.
-            let data = Data(bytes: f.buffer.contents(),
-                            count: f.indexCountPerPrimitive * f.bytesPerIndex * f.count)
-            let element = SCNGeometryElement(data: data,
+            let indexData = Data(bytes: f.buffer.contents(),
+                                 count: f.indexCountPerPrimitive * f.bytesPerIndex * f.count)
+            let element = SCNGeometryElement(data: indexData,
                                              primitiveType: .triangles,
                                              primitiveCount: f.count,
                                              bytesPerIndex: f.bytesPerIndex)

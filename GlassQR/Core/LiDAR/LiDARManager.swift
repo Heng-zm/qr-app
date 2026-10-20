@@ -42,6 +42,7 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
     @Published public var lastDetectedSymbology: String? = nil
     @Published public var arHologramPosition: SIMD3<Float>? = nil
     @Published public var isTargetLocked: Bool = false
+    @Published public var isCameraAccessDenied: Bool = false
 
     // MARK: - Internal ARKit Engine
     // ARSession delegate callbacks are delivered on the main queue (default),
@@ -110,8 +111,15 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
         isLiDARRangingActive = true
         hasFirstSample = false
         lastProcessedTimestamp = 0
+        isCameraAccessDenied = false
 
         #if !targetEnvironment(simulator)
+        // Fast-path: skip the failing ARSession dance when camera access was
+        // already denied (ARSession would just fail with .cameraUnauthorized).
+        if AVCaptureDevice.authorizationStatus(for: .video) == .denied {
+            isCameraAccessDenied = true
+            return
+        }
         if ARWorldTrackingConfiguration.isSupported {
             arSession.run(makeConfiguration(), options: [.resetTracking, .removeExistingAnchors])
             isSessionRunning = true
@@ -240,8 +248,16 @@ public final class LiDARManager: NSObject, ObservableObject, ARSessionDelegate {
     }
 
     public func session(_ session: ARSession, didFailWithError error: Error) {
-        // Fall back to simulation so the UI keeps working.
         isSessionRunning = false
+
+        // Camera access denied: real ranging is unusable. Surface the permission
+        // problem instead of hiding it behind fake simulation readings.
+        if (error as NSError).code == ARError.cameraUnauthorized.rawValue {
+            isCameraAccessDenied = true
+            return
+        }
+
+        // Fall back to simulation so the UI keeps working.
         if isLiDARRangingActive {
             isHardwareLiDAR = false
             startSimulationMode()
