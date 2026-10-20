@@ -72,6 +72,9 @@ public struct TrackMapView: View {
                 } else if let route = manager.activeRoute {
                     activeNavigationGuidanceCard(route: route)
                         .transition(.move(edge: .top).combined(with: .opacity))
+                } else if let direct = manager.directRoutePreview {
+                    directRouteCard(direct: direct)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 if let notice = manager.navigationNotice {
@@ -85,6 +88,7 @@ public struct TrackMapView: View {
             .animation(.spring(response: 0.42, dampingFraction: 0.85), value: !searchResults.isEmpty)
             .animation(.spring(response: 0.42, dampingFraction: 0.85), value: manager.activeRoute != nil)
             .animation(.spring(response: 0.42, dampingFraction: 0.85), value: manager.navigationNotice == nil)
+            .animation(.spring(response: 0.42, dampingFraction: 0.85), value: manager.directRoutePreview == nil)
 
             // 3. Right-Side Map Quick Action Buttons
             VStack(spacing: 10) {
@@ -382,6 +386,52 @@ public struct TrackMapView: View {
         default:
             return notice
         }
+    }
+
+    /// Shown when MapKit can't give a detailed route: straight-line leg with
+    /// exact distance + speed-estimated ETA instead of a dead end.
+    private func directRouteCard(direct: TrackMapManager.DirectRoutePreview) -> some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.cyan)
+                Text(isKhmerLanguage ? "ផ្លូវត្រង់" : "Direct Path")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                Spacer()
+                Text(String(format: "%.1f km · ~%d min", direct.distanceKm, Int(direct.etaMinutes.rounded())))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Color.cyan.opacity(0.9))
+                Button {
+                    manager.clearDirectFallback()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            if let destName = manager.destinationMapItem?.name {
+                Text("→ \(destName)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(1)
+            }
+            Text(isKhmerLanguage
+                ? "ផ្លូវត្រង់ប៉ុណ្ណោះ — គ្មានផ្លូវណែនាំលម្អិតនៅទីនេះទេ"
+                : "Straight line shown — detailed turn-by-turn unavailable here")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(Color(red: 0.07, green: 0.08, blue: 0.12).opacity(0.88), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.cyan.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 4)
     }
 
     private func activeNavigationGuidanceCard(route: MKRoute) -> some View {
@@ -1414,7 +1464,9 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         if context.coordinator.lastRouteFitTrigger != manager.routeOverviewFitTrigger {
             context.coordinator.lastRouteFitTrigger = manager.routeOverviewFitTrigger
             if let route = manager.activeRoute {
-                context.coordinator.frameRouteOverview(route: route)
+                context.coordinator.framePolylineOverview(line: route.polyline)
+            } else if let direct = manager.directRoutePreview {
+                context.coordinator.framePolylineOverview(line: direct.polyline)
             }
         }
 
@@ -1451,17 +1503,27 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         var lastRouteFitTrigger: Int = 0
         var lastBreadcrumbCount: Int = 0
         var lastOverlayCrumbs: Int = -1
-        weak var lastOverlayRoute: MKRoute?
+        // Strong caches: a weak cache nils out when the manager releases the
+        // route/line, and the resulting nil === nil compare would skip the
+        // overlay-clearing pass entirely.
+        var lastOverlayRoute: MKRoute?
+        var lastOverlayDirectPolyline: MKPolyline?
         var isUserDragging: Bool = false
         var lastHeadingLocked: Bool = false
 
-        public func frameRouteOverview(route: MKRoute) {
+        public func framePolylineOverview(line: MKPolyline) {
             guard let mapView = mapView else { return }
             DispatchQueue.main.async {
                 self.parent.isHeadingLocked = false
             }
+            // Degenerate straight legs (short/vertical lines) need inflation
+            // or setVisibleMapRect frames a crunched-to-zero rect.
+            var rect = line.boundingMapRect
+            if rect.width < 60.0 || rect.height < 60.0 {
+                rect = MKMapRect(x: rect.midX - 60.0, y: rect.midY - 60.0, width: 120.0, height: 120.0)
+            }
             let edgePadding = UIEdgeInsets(top: 140, left: 35, bottom: 250, right: 35)
-            mapView.setVisibleMapRect(route.polyline.boundingMapRect, edgePadding: edgePadding, animated: true)
+            mapView.setVisibleMapRect(rect, edgePadding: edgePadding, animated: true)
         }
 
         init(_ parent: TrackMapViewRepresentable) {
@@ -1644,16 +1706,21 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
         }
 
         // Overlay updates — fast-pathed: SwiftUI re-renders at ~30Hz between
-        // GPS ticks, so only recompute when the route identity or trail
-        // length actually changed.
+        // GPS ticks, so only recompute when the route identity, trail
+        // length, or direct fallback line actually changed.
         func updateOverlays(mapView: MKMapView) {
             let nextRoute = parent.manager.activeRoute
             let crumbCount = parent.manager.breadcrumbs.count
-            if nextRoute === lastOverlayRoute && crumbCount == lastOverlayCrumbs {
+            let nextDirectLine = parent.manager.directRoutePreview?.polyline
+            let previousDirectLine = lastOverlayDirectPolyline
+            if nextRoute === lastOverlayRoute
+                && crumbCount == lastOverlayCrumbs
+                && nextDirectLine === previousDirectLine {
                 return
             }
             lastOverlayRoute = nextRoute
             lastOverlayCrumbs = crumbCount
+            lastOverlayDirectPolyline = nextDirectLine
 
             // Navigation route
             let routePolylines = mapView.overlays.filter { ($0 as? MKPolyline)?.title != "BreadcrumbTrail" }
@@ -1676,6 +1743,19 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
                 mapView.removeOverlays(routePolylines)
                 let existingPins = mapView.annotations.filter { !($0 is MKUserLocation) }
                 mapView.removeAnnotations(existingPins)
+            }
+
+            // Direct fallback line (shown when detailed directions are
+            // unavailable by region): draw once, dashed; remove on clear.
+            if nextDirectLine !== previousDirectLine {
+                let staleDirect = mapView.overlays.filter { ($0 as? MKPolyline)?.title == "DirectRoute" }
+                if !staleDirect.isEmpty {
+                    mapView.removeOverlays(staleDirect)
+                }
+                if let direct = nextDirectLine {
+                    direct.title = "DirectRoute"
+                    mapView.addOverlay(direct, level: .aboveRoads)
+                }
             }
 
             // Breadcrumbs update
@@ -1707,6 +1787,12 @@ public struct TrackMapViewRepresentable: UIViewRepresentable {
                     renderer.lineWidth = 5.0
                     renderer.lineCap = .round
                     renderer.lineJoin = .round
+                } else if polyline.title == "DirectRoute" {
+                    renderer.strokeColor = UIColor(red: 0.55, green: 0.92, blue: 1.0, alpha: 0.9)
+                    renderer.lineWidth = 4.0
+                    renderer.lineCap = .round
+                    renderer.lineJoin = .round
+                    renderer.lineDashPattern = [6, 8]
                 } else {
                     renderer.strokeColor = UIColor(red: 0.05, green: 0.65, blue: 1.0, alpha: 0.95)
                     renderer.lineWidth = 7.0

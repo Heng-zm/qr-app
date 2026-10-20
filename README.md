@@ -167,6 +167,7 @@ If you wish to sign with an Apple Developer Certificate, add these in **Repo Set
   - **Windshield HUD Mode (Head-Up Display)**: Inverted/mirrored high-contrast projection designed for placing on car dashboards at night for holographic windshield reflection.
   - **Speed-Gradient Breadcrumbs**: Real-time GPS path recording color-coded by velocity (Cyan=slow, Green=cruise, Orange/Red=high speed).
   - **GPX Trail Export**: Share your recorded track as a standard `.gpx` file — importable into Strava, Google Earth, Garmin, and Relive.
+  - **Region Fallback Direct Path**: When Apple Maps has no turn-by-turn coverage for a trip (common outside routing-supported regions), TrackMap draws a dashed straight line with exact distance and a speed-estimated ETA instead of failing, with a bilingual card to clear it.
   - **Overspeed Haptic Warning**: Configurable speed limit threshold with alert glow and physical sensory pulses.
   - **Instant Geo-QR Integration**: 1-tap generation of styled Liquid Glass Geo-QR codes for live coordinates and recorded trips.
   - **Full Khmer (ភាសាខ្មែរ 🇰🇭) & English Support**: Bilingual telemetry metrics, compass bearings, HUD controls, and route summaries.

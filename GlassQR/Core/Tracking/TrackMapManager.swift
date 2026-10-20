@@ -165,6 +165,16 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
     @Published public var isCalculatingRoute: Bool = false
     @Published public var navigationNotice: String?
 
+    /// Straight-line fallback when MapKit has no detailed directions for the
+    /// origin/destination pair (common outside Apple's turn-by-turn coverage).
+    public struct DirectRoutePreview {
+        public let polyline: MKPolyline
+        public let distanceKm: Double
+        public let etaMinutes: Double
+    }
+
+    @Published public var directRoutePreview: DirectRoutePreview?
+
     // Live Turn-by-Turn Route Tracking
     @Published public var transportMode: TransportMode = .automobile
     @Published public var currentStepIndex: Int = 0
@@ -282,6 +292,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         averageSpeed = 0.0
         breadcrumbs.removeAll()
         activeRoute = nil
+        directRoutePreview = nil
         routeSteps.removeAll()
         destinationMapItem = nil
     }
@@ -432,10 +443,17 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
                     // MapKit reports unavailable/undrawable routes (e.g. transit
                     // beyond its limits, walking distance restrictions) as
                     // DirectionsNotFound with a raw message no driver can act on.
-                    if nsError.domain == MKErrorDomain && nsError.code == MKError.Code.directionsNotFound.rawValue {
+                    // Regions outside Apple's routing coverage surface the same
+                    // condition under other codes and phrasings, so also match
+                    // the localized message as a last resort.
+                    let isDirectionsUnavailable =
+                        (nsError.domain == MKErrorDomain && nsError.code == MKError.Code.directionsNotFound.rawValue)
+                        || nsError.localizedDescription.lowercased().contains("not available")
+                    if isDirectionsUnavailable {
                         self.navigationNotice = self.transportMode == .transit
                             ? "No transit route was found. Try Drive or Walk mode."
                             : "No route was found for this trip."
+                        self.showDirectFallback(to: destination)
                         return
                     }
                     self.navigationNotice = "Route error: \(nsError.localizedDescription)"
@@ -444,15 +462,64 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
 
                 guard let routes = response?.routes, !routes.isEmpty else {
                     self.navigationNotice = "No route found to destination."
+                    self.showDirectFallback(to: destination)
                     return
                 }
 
+                self.directRoutePreview = nil
                 self.alternateRoutes = routes
                 self.selectedRouteIndex = 0
                 self.applyActiveRoute(routes[0], autoFrameOverview: autoFrameOverview)
                 self.navigationNotice = nil
             }
         }
+    }
+
+    /// Fallback for regions where MapKit can't provide street directions:
+    /// keep navigation useful with an exact straight-line leg and a speed-
+    /// estimated ETA. Draws instead of failing; success paths clear it.
+    private func showDirectFallback(to destination: MKMapItem) {
+        guard let origin = currentCoordinate else {
+            directRoutePreview = nil
+            return
+        }
+        let destCoord = destination.placemark.coordinate
+        let originLocation = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+        let destinationLocation = CLLocation(latitude: destCoord.latitude, longitude: destCoord.longitude)
+        let meters = originLocation.distance(from: destinationLocation)
+        guard meters > 5.0 else {
+            directRoutePreview = nil
+            return
+        }
+
+        let coords = [origin, destCoord]
+        let line = MKPolyline(coordinates: coords, count: 2)
+        line.title = "DirectRoute"
+
+        // ETA strikes a balance between template speed per mode and the
+        // actual GPS speed when the vehicle is clearly moving.
+        let typicalSpeedMPS: Double
+        switch transportMode {
+        case .walking:
+            typicalSpeedMPS = 5.0 * 1000.0 / 3600.0
+        case .transit:
+            typicalSpeedMPS = 25.0 * 1000.0 / 3600.0
+        default:
+            typicalSpeedMPS = 40.0 * 1000.0 / 3600.0
+        }
+        let effectiveSpeedMPS = currentSpeedMPS > 2.2 ? currentSpeedMPS : typicalSpeedMPS
+
+        directRoutePreview = DirectRoutePreview(
+            polyline: line,
+            distanceKm: meters / 1000.0,
+            etaMinutes: meters / effectiveSpeedMPS / 60.0
+        )
+        routeOverviewFitTrigger += 1
+    }
+
+    public func clearDirectFallback() {
+        directRoutePreview = nil
+        navigationNotice = nil
     }
 
     public func selectRoute(at index: Int) {
@@ -524,6 +591,7 @@ public final class TrackMapManager: NSObject, ObservableObject, CLLocationManage
         activeDirectionsTask?.cancel()
         activeDirectionsTask = nil
         activeRoute = nil
+        directRoutePreview = nil
         alternateRoutes.removeAll()
         routeSteps.removeAll()
         destinationMapItem = nil
